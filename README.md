@@ -13,7 +13,6 @@ A collection of scripts and tools for Roblox, ranging from universal utilities (
 ### 🔓 Global Scripts
 Scripts that work across most Roblox games.
 
-- `JustAdmin.lua` – A powerful universal admin script.
 - `InfiniteYield.lua` – One of the most popular open-source admin tools.
 - `ChatBypasser.lua` – Bypasses Roblox chat filters (for educational testing only).
 
@@ -21,11 +20,6 @@ Scripts that work across most Roblox games.
 
 #### Arsenal
 - `Aimbot+Triggerbot.lua` – Smooth aimbot and auto-trigger system.
-- `SilentAim.lua` – A silent aim system that doesn't snap the camera.
-- `ESP.lua` – Wallhack + enemy player tracking.
-
-#### [Add more game folders as needed]
-- `GameName/ScriptName.lua` – Description of what it does.
 
 ### 🚫 Bypassing Tools
 - `AntiKick.lua` – Prevents kick attempts by the server.
