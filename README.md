@@ -18,13 +18,8 @@ Scripts that work across most Roblox games.
 
 ### 🎯 Game-Specific Exploits
 
-#### Arsenal
+#### Arsenal/Aimbot
 - `Aimbot+Triggerbot.lua` – Smooth aimbot and auto-trigger system.
-
-### 🚫 Bypassing Tools
-- `AntiKick.lua` – Prevents kick attempts by the server.
-- `AntiAFK.lua` – Bypasses idle detection.
-- `TextBypasser.lua` – Experimental text filter bypass tool.
 
 ---
 
@@ -39,7 +34,7 @@ Scripts that work across most Roblox games.
 
 3. Load scripts via:
     ```lua
-    loadstring(game:HttpGet("https://raw.githubusercontent.com/YOUR-USERNAME/roblox-cheat-hub/main/path-to-script.lua"))()
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/s-0-u-l-z/roblox-cheat-hub/main/path-to-script.lua"))()
     ```
 
 ---
