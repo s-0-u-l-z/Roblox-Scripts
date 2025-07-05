@@ -30,7 +30,7 @@ Scripts that work across most Roblox games.
     git clone https://github.com/YOUR-USERNAME/roblox-cheat-hub.git
     ```
 
-2. Inject the desired script using an executor like Synapse X, KRNL, Fluxus, etc.
+2. Inject the desired script using an executor like Zenith, KRNL, Delta, etc.
 
 3. Load scripts via:
     ```lua
