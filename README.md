@@ -4,7 +4,7 @@ A collection of scripts and tools for Roblox, ranging from universal utilities (
 
 > ⚠️ **Disclaimer**  
 > This repository is intended solely for educational purposes. Using or distributing these scripts in violation of Roblox’s [Terms of Service](https://en.help.roblox.com/hc/en-us/articles/115004647846) may result in account bans or legal consequences.  
-> I do not condone or support malicious activity. Use responsibly.
+> I do not condone or support malicious activity. Use unresponsibly. And yes idc about the TOS of Roblox its not for educational purposes I just have this here.
 
 ---
 
@@ -13,8 +13,8 @@ A collection of scripts and tools for Roblox, ranging from universal utilities (
 ### 🔓 Global Scripts
 Scripts that work across most Roblox games.
 
-- `InfiniteYield.lua` – One of the most popular open-source admin tools.
-- `ChatBypasser.lua` – Bypasses Roblox chat filters (for educational testing only).
+- `IY.lua` – One of the most popular open-source admin tools.
+- `CatBypasser.lua` – Bypasses Roblox chat filters (for educational testing only).
 
 ### 🎯 Game-Specific Exploits
 
@@ -48,7 +48,6 @@ Scripts that work across most Roblox games.
 
 - Roblox script executor (preferably with full Lua support).
 - Internet connection (for remote script execution).
-- Some scripts may require specific game versions.
 
 ---
 
