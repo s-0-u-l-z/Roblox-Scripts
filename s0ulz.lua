@@ -14,6 +14,12 @@ local Lighting = game:GetService("Lighting")
 local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
 
+-- Script environment for storing values
+local scriptEnv = {
+    FPDH = workspace.FallenPartsDestroyHeight,
+    OldPos = nil
+}
+
 -- Notification
 game:GetService("StarterGui"):SetCore("SendNotification", { 
     Title = "s0ulz GUI";
@@ -24,7 +30,7 @@ game:GetService("StarterGui"):SetCore("SendNotification", {
 game:GetService("StarterGui"):SetCore("SendNotification", {
     Title = "Info";
     Text = "Click F4 to open and close the GUI";
-    duration = 10
+    Duration = 10
 })
 
 -- Player search function
@@ -1001,7 +1007,7 @@ local function SkidFling(TargetPlayer)
     end
 
     if RootPart.Velocity.Magnitude < 50 then
-        getgenv().OldPos = RootPart.CFrame
+        scriptEnv.OldPos = RootPart.CFrame
     end
 
     if THumanoid and THumanoid.Sit then
@@ -1073,7 +1079,6 @@ local function SkidFling(TargetPlayer)
             or tick() > Time + TimeToWait
     end
 
-    getgenv().FPDH = getgenv().FPDH or workspace.FallenPartsDestroyHeight
     workspace.FallenPartsDestroyHeight = 0/0
 
     local BV = Instance.new("BodyVelocity")
@@ -1102,10 +1107,10 @@ local function SkidFling(TargetPlayer)
     Humanoid:SetStateEnabled(Enum.HumanoidStateType.Seated, true)
     workspace.CurrentCamera.CameraSubject = Humanoid
 
-    if getgenv().OldPos then
+    if scriptEnv.OldPos then
         repeat
-            RootPart.CFrame = getgenv().OldPos * CFrame.new(0, .5, 0)
-            Character:SetPrimaryPartCFrame(getgenv().OldPos * CFrame.new(0, .5, 0))
+            RootPart.CFrame = scriptEnv.OldPos * CFrame.new(0, .5, 0)
+            Character:SetPrimaryPartCFrame(scriptEnv.OldPos * CFrame.new(0, .5, 0))
             Humanoid:ChangeState("GettingUp")
             for _, x in ipairs(Character:GetChildren()) do
                 if x:IsA("BasePart") then
@@ -1114,10 +1119,10 @@ local function SkidFling(TargetPlayer)
                 end
             end
             task.wait()
-        until (RootPart.Position - getgenv().OldPos.Position).Magnitude < 25
+        until (RootPart.Position - scriptEnv.OldPos.Position).Magnitude < 25
     end
 
-    workspace.FallenPartsDestroyHeight = getgenv().FPDH
+    workspace.FallenPartsDestroyHeight = scriptEnv.FPDH
 end
 
 -- Triggerbot functionality
@@ -1191,6 +1196,10 @@ local infiniteTeleportEnabled = false
 local flyBodyVelocity, flyBodyGyro = nil, nil
 local teleportConnection = nil
 local flightSpeed = 50
+
+-- Anti-cheat protection variables
+local antiKickEnabled = true
+local antiDetectionEnabled = true
 
 -- Apply character settings
 local function applyCharacterSettings()
