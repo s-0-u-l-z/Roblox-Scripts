@@ -4,9 +4,6 @@
 --https://www.roblox.com/catalog/63690008/Pal-Hair
 --https://www.roblox.com/catalog/62234425/Brown-Hair
 
---[[
-	WARNING: Heads up! This script has not been verified by ScriptBlox. Use at your own risk!
-]]
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local LocalPlayer = Players.LocalPlayer
