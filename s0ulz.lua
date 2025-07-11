@@ -1,4 +1,4 @@
--- Modern Roblox GUI Script (Fixed Version)
+-- Modern Roblox GUI Script (Enhanced with Animations)
 -- Provides controls for player speed, jump power, flight, teleport, fling mechanics, extra utilities, and PVP features
 
 -- Services
@@ -73,7 +73,11 @@ local screenGui = Instance.new("ScreenGui")
 screenGui.Name = "ModernGUI"
 screenGui.Parent = playerGui
 screenGui.ResetOnSpawn = false
-screenGui.Enabled = true -- Start visible
+screenGui.Enabled = false -- Start hidden
+
+-- Animation properties
+local animationSpeed = 0.2
+local hoverAnimationSpeed = 0.15
 
 -- Main Frame (Increased height for new features)
 local mainFrame = Instance.new("Frame")
@@ -126,6 +130,7 @@ minimizeButton.Font = Enum.Font.GothamBold
 minimizeButton.Text = "-"
 minimizeButton.TextColor3 = Color3.fromRGB(255, 255, 255)
 minimizeButton.TextSize = 14
+minimizeButton.ZIndex = 2
 
 local minimizeCorner = Instance.new("UICorner")
 minimizeCorner.CornerRadius = UDim.new(0, 10)
@@ -141,27 +146,103 @@ closeButton.Font = Enum.Font.GothamBold
 closeButton.Text = "×"
 closeButton.TextColor3 = Color3.fromRGB(255, 255, 255)
 closeButton.TextSize = 14
+closeButton.ZIndex = 2
 
 local closeCorner = Instance.new("UICorner")
 closeCorner.CornerRadius = UDim.new(0, 10)
 closeCorner.Parent = closeButton
 
+-- Button hover animations
+local function setupButtonHover(button)
+    local originalColor = button.BackgroundColor3
+    local hoverColor = Color3.new(
+        math.min(originalColor.R * 1.2, 1),
+        math.min(originalColor.G * 1.2, 1),
+        math.min(originalColor.B * 1.2, 1)
+    )
+    
+    button.MouseEnter:Connect(function()
+        TweenService:Create(button, TweenInfo.new(hoverAnimationSpeed), {
+            BackgroundColor3 = hoverColor
+        }):Play()
+    end)
+    
+    button.MouseLeave:Connect(function()
+        TweenService:Create(button, TweenInfo.new(hoverAnimationSpeed), {
+            BackgroundColor3 = originalColor
+        }):Play()
+    end)
+end
+
+setupButtonHover(minimizeButton)
+setupButtonHover(closeButton)
+
+-- Minimize/restore with animations
 local isMinimized = false
 minimizeButton.MouseButton1Click:Connect(function()
     isMinimized = not isMinimized
     if isMinimized then
-        mainFrame.Size = UDim2.new(0, 350, 0, 36)
-        tabFrame.Visible = false
-        contentArea.Visible = false
+        -- Minimize animation
+        TweenService:Create(mainFrame, TweenInfo.new(animationSpeed, Enum.EasingStyle.Quad), {
+            Size = UDim2.new(0, 350, 0, 36)
+        }):Play()
+        
+        -- Fade out content
+        for _, child in pairs(mainFrame:GetChildren()) do
+            if child ~= titleBar and child ~= corner then
+                TweenService:Create(child, TweenInfo.new(animationSpeed), {
+                    BackgroundTransparency = 1
+                }):Play()
+            end
+        end
+        
+        -- Hide content after animation
+        delay(animationSpeed, function()
+            for _, child in pairs(mainFrame:GetChildren()) do
+                if child ~= titleBar and child ~= corner then
+                    child.Visible = false
+                end
+            end
+        end)
     else
-        mainFrame.Size = UDim2.new(0, 350, 0, 470)
-        tabFrame.Visible = true
-        contentArea.Visible = true
+        -- Show content before animation
+        for _, child in pairs(mainFrame:GetChildren()) do
+            if child ~= titleBar and child ~= corner then
+                child.Visible = true
+                child.BackgroundTransparency = 1
+            end
+        end
+        
+        -- Restore animation
+        TweenService:Create(mainFrame, TweenInfo.new(animationSpeed, Enum.EasingStyle.Quad), {
+            Size = UDim2.new(0, 350, 0, 470)
+        }):Play()
+        
+        -- Fade in content
+        delay(animationSpeed/2, function()
+            for _, child in pairs(mainFrame:GetChildren()) do
+                if child ~= titleBar and child ~= corner then
+                    TweenService:Create(child, TweenInfo.new(animationSpeed), {
+                        BackgroundTransparency = 0
+                    }):Play()
+                end
+            end
+        end)
     end
 end)
 
+-- Close button with animation
 closeButton.MouseButton1Click:Connect(function()
-    screenGui:Destroy()
+    -- Fade out animation
+    TweenService:Create(mainFrame, TweenInfo.new(animationSpeed), {
+        BackgroundTransparency = 1,
+        Size = UDim2.new(0, 0, 0, 0)
+    }):Play()
+    
+    -- Destroy after animation completes
+    delay(animationSpeed, function()
+        screenGui:Destroy()
+    end)
 end)
 
 -- Tab System
@@ -192,6 +273,8 @@ for i, tabName in ipairs(tabs) do
     local tabCorner = Instance.new("UICorner")
     tabCorner.CornerRadius = UDim.new(0, 8)
     tabCorner.Parent = tabButton
+    
+    setupButtonHover(tabButton)
 
     tabButtons[tabName] = tabButton
 end
@@ -293,6 +376,8 @@ local flightCorner = Instance.new("UICorner")
 flightCorner.CornerRadius = UDim.new(0, 8)
 flightCorner.Parent = flightButton
 
+setupButtonHover(flightButton)
+
 -- Teleport Tab Content
 local teleportContent = Instance.new("Frame")
 teleportContent.Name = "TeleportContent"
@@ -333,6 +418,8 @@ local teleportCorner = Instance.new("UICorner")
 teleportCorner.CornerRadius = UDim.new(0, 8)
 teleportCorner.Parent = teleportButton
 
+setupButtonHover(teleportButton)
+
 local infiniteTeleportButton = Instance.new("TextButton")
 infiniteTeleportButton.Parent = teleportContent
 infiniteTeleportButton.BackgroundColor3 = Color3.fromRGB(255, 150, 0)
@@ -346,6 +433,8 @@ infiniteTeleportButton.TextSize = 16
 local infTeleportCorner = Instance.new("UICorner")
 infTeleportCorner.CornerRadius = UDim.new(0, 8)
 infTeleportCorner.Parent = infiniteTeleportButton
+
+setupButtonHover(infiniteTeleportButton)
 
 -- Troll Tab Content (replaces Fling tab)
 local trollContent = Instance.new("Frame")
@@ -389,6 +478,8 @@ local flingPlayerCorner = Instance.new("UICorner")
 flingPlayerCorner.CornerRadius = UDim.new(0, 8)
 flingPlayerCorner.Parent = flingPlayerButton
 
+setupButtonHover(flingPlayerButton)
+
 -- Fling All Button
 local flingAllButton = Instance.new("TextButton")
 flingAllButton.Parent = trollContent
@@ -403,6 +494,8 @@ flingAllButton.TextSize = 16
 local flingAllCorner = Instance.new("UICorner")
 flingAllCorner.CornerRadius = UDim.new(0, 8)
 flingAllCorner.Parent = flingAllButton
+
+setupButtonHover(flingAllButton)
 
 -- Extra Tab Content
 local extraContent = Instance.new("Frame")
@@ -420,7 +513,7 @@ local invisibilityButton = Instance.new("TextButton")
 invisibilityButton.Parent = extraContent
 invisibilityButton.BackgroundColor3 = Color3.fromRGB(80, 180, 180)
 invisibilityButton.Position = UDim2.new(0, 0, 0, 10)
-invisibilityButton.Size = UDim2.new(1, 0, 0, 28)
+invisibilityButton.Size = UDim2.new(0.5, -4, 0, 28)
 invisibilityButton.Font = Enum.Font.GothamBold
 invisibilityButton.Text = "Invisibility"
 invisibilityButton.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -430,27 +523,31 @@ local invisibilityCorner = Instance.new("UICorner")
 invisibilityCorner.CornerRadius = UDim.new(0, 8)
 invisibilityCorner.Parent = invisibilityButton
 
--- CatBypasser Button
-local catBypassButton = Instance.new("TextButton")
-catBypassButton.Parent = extraContent
-catBypassButton.BackgroundColor3 = Color3.fromRGB(80, 180, 80)
-catBypassButton.Position = UDim2.new(0, 0, 0, 44)
-catBypassButton.Size = UDim2.new(1, 0, 0, 28)
-catBypassButton.Font = Enum.Font.GothamBold
-catBypassButton.Text = "CatBypasser"
-catBypassButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-catBypassButton.TextSize = 16
+setupButtonHover(invisibilityButton)
 
-local catBypassCorner = Instance.new("UICorner")
-catBypassCorner.CornerRadius = UDim.new(0, 8)
-catBypassCorner.Parent = catBypassButton
+-- SaturnBypasser Button (Renamed from CatBypasser)
+local saturnBypassButton = Instance.new("TextButton")
+saturnBypassButton.Parent = extraContent
+saturnBypassButton.BackgroundColor3 = Color3.fromRGB(80, 180, 80)
+saturnBypassButton.Position = UDim2.new(0.5, 4, 0, 10)
+saturnBypassButton.Size = UDim2.new(0.5, -4, 0, 28)
+saturnBypassButton.Font = Enum.Font.GothamBold
+saturnBypassButton.Text = "SaturnBypasser"
+saturnBypassButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+saturnBypassButton.TextSize = 16
+
+local saturnBypassCorner = Instance.new("UICorner")
+saturnBypassCorner.CornerRadius = UDim.new(0, 8)
+saturnBypassCorner.Parent = saturnBypassButton
+
+setupButtonHover(saturnBypassButton)
 
 -- IY Button
 local iyButton = Instance.new("TextButton")
 iyButton.Parent = extraContent
 iyButton.BackgroundColor3 = Color3.fromRGB(180, 80, 180)
-iyButton.Position = UDim2.new(0, 0, 0, 78)
-iyButton.Size = UDim2.new(1, 0, 0, 28)
+iyButton.Position = UDim2.new(0, 0, 0, 46)
+iyButton.Size = UDim2.new(0.5, -4, 0, 28)
 iyButton.Font = Enum.Font.GothamBold
 iyButton.Text = "IY (Infinite Yield)"
 iyButton.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -459,6 +556,93 @@ iyButton.TextSize = 16
 local iyCorner = Instance.new("UICorner")
 iyCorner.CornerRadius = UDim.new(0, 8)
 iyCorner.Parent = iyButton
+
+setupButtonHover(iyButton)
+
+-- Bird Poop Button
+local birdPoopButton = Instance.new("TextButton")
+birdPoopButton.Parent = extraContent
+birdPoopButton.BackgroundColor3 = Color3.fromRGB(180, 100, 80)
+birdPoopButton.Position = UDim2.new(0.5, 4, 0, 46)
+birdPoopButton.Size = UDim2.new(0.5, -4, 0, 28)
+birdPoopButton.Font = Enum.Font.GothamBold
+birdPoopButton.Text = "Bird Poop"
+birdPoopButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+birdPoopButton.TextSize = 16
+
+local birdPoopCorner = Instance.new("UICorner")
+birdPoopCorner.CornerRadius = UDim.new(0, 8)
+birdPoopCorner.Parent = birdPoopButton
+
+setupButtonHover(birdPoopButton)
+
+-- Basketball Button
+local basketballButton = Instance.new("TextButton")
+basketballButton.Parent = extraContent
+basketballButton.BackgroundColor3 = Color3.fromRGB(80, 100, 180)
+basketballButton.Position = UDim2.new(0, 0, 0, 82)
+basketballButton.Size = UDim2.new(0.5, -4, 0, 28)
+basketballButton.Font = Enum.Font.GothamBold
+basketballButton.Text = "Basketball"
+basketballButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+basketballButton.TextSize = 16
+
+local basketballCorner = Instance.new("UICorner")
+basketballCorner.CornerRadius = UDim.new(0, 8)
+basketballCorner.Parent = basketballButton
+
+setupButtonHover(basketballButton)
+
+-- Fruit Button
+local fruitButton = Instance.new("TextButton")
+fruitButton.Parent = extraContent
+fruitButton.BackgroundColor3 = Color3.fromRGB(100, 180, 80)
+fruitButton.Position = UDim2.new(0.5, 4, 0, 82)
+fruitButton.Size = UDim2.new(0.5, -4, 0, 28)
+fruitButton.Font = Enum.Font.GothamBold
+fruitButton.Text = "Fruit"
+fruitButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+fruitButton.TextSize = 16
+
+local fruitCorner = Instance.new("UICorner")
+fruitCorner.CornerRadius = UDim.new(0, 8)
+fruitCorner.Parent = fruitButton
+
+setupButtonHover(fruitButton)
+
+-- TSB Button
+local tsbButton = Instance.new("TextButton")
+tsbButton.Parent = extraContent
+tsbButton.BackgroundColor3 = Color3.fromRGB(180, 80, 100)
+tsbButton.Position = UDim2.new(0, 0, 0, 118)
+tsbButton.Size = UDim2.new(0.5, -4, 0, 28)
+tsbButton.Font = Enum.Font.GothamBold
+tsbButton.Text = "TSB"
+tsbButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+tsbButton.TextSize = 16
+
+local tsbCorner = Instance.new("UICorner")
+tsbCorner.CornerRadius = UDim.new(0, 8)
+tsbCorner.Parent = tsbButton
+
+setupButtonHover(tsbButton)
+
+-- ChatAdmin Button
+local chatAdminButton = Instance.new("TextButton")
+chatAdminButton.Parent = extraContent
+chatAdminButton.BackgroundColor3 = Color3.fromRGB(80, 180, 180)
+chatAdminButton.Position = UDim2.new(0.5, 4, 0, 118)
+chatAdminButton.Size = UDim2.new(0.5, -4, 0, 28)
+chatAdminButton.Font = Enum.Font.GothamBold
+chatAdminButton.Text = "ChatAdmin"
+chatAdminButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+chatAdminButton.TextSize = 16
+
+local chatAdminCorner = Instance.new("UICorner")
+chatAdminCorner.CornerRadius = UDim.new(0, 8)
+chatAdminCorner.Parent = chatAdminButton
+
+setupButtonHover(chatAdminButton)
 
 -- PVP Tab Content
 local pvpContent = Instance.new("Frame")
@@ -486,6 +670,8 @@ local espCorner = Instance.new("UICorner")
 espCorner.CornerRadius = UDim.new(0, 8)
 espCorner.Parent = espToggle
 
+setupButtonHover(espToggle)
+
 -- Tracer Toggle
 local tracerToggle = Instance.new("TextButton")
 tracerToggle.Parent = pvpContent
@@ -500,6 +686,8 @@ tracerToggle.TextSize = 16
 local tracerCorner = Instance.new("UICorner")
 tracerCorner.CornerRadius = UDim.new(0, 8)
 tracerCorner.Parent = tracerToggle
+
+setupButtonHover(tracerToggle)
 
 -- Invincible Toggle
 local invincibleButton = Instance.new("TextButton")
@@ -516,6 +704,8 @@ local invincibleCorner = Instance.new("UICorner")
 invincibleCorner.CornerRadius = UDim.new(0, 8)
 invincibleCorner.Parent = invincibleButton
 
+setupButtonHover(invincibleButton)
+
 -- Aimbot Toggle
 local aimbotButton = Instance.new("TextButton")
 aimbotButton.Parent = pvpContent
@@ -530,6 +720,8 @@ aimbotButton.TextSize = 16
 local aimbotCorner = Instance.new("UICorner")
 aimbotCorner.CornerRadius = UDim.new(0, 8)
 aimbotCorner.Parent = aimbotButton
+
+setupButtonHover(aimbotButton)
 
 -- Triggerbot Toggle
 local triggerbotButton = Instance.new("TextButton")
@@ -546,6 +738,8 @@ local triggerbotCorner = Instance.new("UICorner")
 triggerbotCorner.CornerRadius = UDim.new(0, 8)
 triggerbotCorner.Parent = triggerbotButton
 
+setupButtonHover(triggerbotButton)
+
 -- Hit Box Expander Toggle
 local hitboxButton = Instance.new("TextButton")
 hitboxButton.Parent = pvpContent
@@ -560,6 +754,8 @@ hitboxButton.TextSize = 16
 local hitboxCorner = Instance.new("UICorner")
 hitboxCorner.CornerRadius = UDim.new(0, 8)
 hitboxCorner.Parent = hitboxButton
+
+setupButtonHover(hitboxButton)
 
 -- Anti-Kick Toggle
 local antiKickButton = Instance.new("TextButton")
@@ -576,6 +772,8 @@ local antiKickCorner = Instance.new("UICorner")
 antiKickCorner.CornerRadius = UDim.new(0, 8)
 antiKickCorner.Parent = antiKickButton
 
+setupButtonHover(antiKickButton)
+
 -- Anti-Detection Toggle
 local antiDetectionButton = Instance.new("TextButton")
 antiDetectionButton.Parent = pvpContent
@@ -590,6 +788,8 @@ antiDetectionButton.TextSize = 16
 local antiDetectionCorner = Instance.new("UICorner")
 antiDetectionCorner.CornerRadius = UDim.new(0, 8)
 antiDetectionCorner.Parent = antiDetectionButton
+
+setupButtonHover(antiDetectionButton)
 
 -- ===== FIXED ESP AND TRACER SYSTEM =====
 local espSettings = {
@@ -1522,10 +1722,9 @@ flingAllButton.MouseButton1Click:Connect(function()
 end)
 
 -- Extra tab functionality
-catBypassButton.MouseButton1Click:Connect(function()
-    -- CatBypasser script
-    settings = {name = 'SmeoBl', color = 'Blue'}
-    loadstring(game:HttpGet("https://raw.githubusercontent.com/shadow62x/catbypass/main/upfix"))()
+saturnBypassButton.MouseButton1Click:Connect(function()
+    -- SaturnBypasser script
+    loadstring(game:HttpGet('https://getsaturn.pages.dev/sb.lua'))()
 end)
 
 iyButton.MouseButton1Click:Connect(function()
@@ -1536,6 +1735,32 @@ end)
 invisibilityButton.MouseButton1Click:Connect(function()
     -- Invisibility script
     loadstring(game:HttpGet("https://pastebin.com/raw/vP6CrQJj"))()
+end)
+
+-- New scripts functionality
+birdPoopButton.MouseButton1Click:Connect(function()
+    -- Bird Poop script
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/s-0-u-l-z/Roblox-Scripts/refs/heads/main/Troll/FE-Bird-Poop.lua"))()
+end)
+
+basketballButton.MouseButton1Click:Connect(function()
+    -- Basketball script
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/vnausea/absence-mini/refs/heads/main/absencemini.lua"))()
+end)
+
+fruitButton.MouseButton1Click:Connect(function()
+    -- Fruit script
+    loadstring(game:HttpGet('https://raw.githubusercontent.com/ThundarZ/Welcome/refs/heads/main/Main/GaG/Main.lua'))()
+end)
+
+tsbButton.MouseButton1Click:Connect(function()
+    -- TSB script
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/ATrainz/Phantasm/refs/heads/main/Games/TSB.lua"))()
+end)
+
+chatAdminButton.MouseButton1Click:Connect(function()
+    -- ChatAdmin script
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/s-0-u-l-z/Roblox-Scripts/refs/heads/main/Global/FE-ChatAdmin.lua"))()
 end)
 
 -- PVP tab functionality
@@ -1685,20 +1910,40 @@ end)
 -- GUI Visibility Toggle (F4 Key)
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
     if input.KeyCode == Enum.KeyCode.F4 and not gameProcessed then
-        screenGui.Enabled = not screenGui.Enabled
+        if screenGui.Enabled then
+            -- Close animation
+            TweenService:Create(mainFrame, TweenInfo.new(animationSpeed), {
+                BackgroundTransparency = 1,
+                Size = UDim2.new(0, 0, 0, 0)
+            }):Play()
+            delay(animationSpeed, function()
+                screenGui.Enabled = false
+                mainFrame.Size = UDim2.new(0, 350, 0, 470)
+                mainFrame.BackgroundTransparency = 0
+            end)
+        else
+            -- Open animation
+            screenGui.Enabled = true
+            mainFrame.Size = UDim2.new(0, 350, 0, 36)
+            TweenService:Create(mainFrame, TweenInfo.new(animationSpeed), {
+                Size = UDim2.new(0, 350, 0, 470),
+                BackgroundTransparency = 0
+            }):Play()
+        end
     end
 end)
 
--- Animation for main frame
-local openTween = TweenService:Create(
-    mainFrame,
-    TweenInfo.new(0.5, Enum.EasingStyle.Quint, Enum.EasingDirection.Out),
-    {
-        Size = UDim2.new(0, 350, 0, 470),
-        BackgroundTransparency = 0
-    }
-)
-openTween:Play()
+-- Animation for main frame on initial open
+delay(0.5, function()
+    if screenGui and screenGui.Parent then
+        screenGui.Enabled = true
+        mainFrame.Size = UDim2.new(0, 350, 0, 36)
+        TweenService:Create(mainFrame, TweenInfo.new(animationSpeed), {
+            Size = UDim2.new(0, 350, 0, 470),
+            BackgroundTransparency = 0
+        }):Play()
+    end
+end)
 
 -- Cleanup when GUI is closed
 screenGui.Destroying:Connect(function()
