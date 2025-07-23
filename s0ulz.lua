@@ -9,6 +9,7 @@ local TweenService = game:GetService("TweenService")
 local Workspace = game:GetService("Workspace")
 local VirtualInputManager = game:GetService("VirtualInputManager")
 local Lighting = game:GetService("Lighting")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 -- Local player reference
 local player = Players.LocalPlayer
@@ -143,7 +144,7 @@ closeButton.BackgroundColor3 = Color3.fromRGB(255, 50, 50)
 closeButton.Position = UDim2.new(1, -35, 0.5, -10)
 closeButton.Size = UDim2.new(0, 20, 0, 20)
 closeButton.Font = Enum.Font.GothamBold
-closeButton.Text = "×"
+closeButton.Text = "ￃﾗ"
 closeButton.TextColor3 = Color3.fromRGB(255, 255, 255)
 closeButton.TextSize = 14
 closeButton.ZIndex = 2
@@ -467,8 +468,8 @@ playerFlingInputCorner.Parent = playerFlingInput
 local flingPlayerButton = Instance.new("TextButton")
 flingPlayerButton.Parent = trollContent
 flingPlayerButton.BackgroundColor3 = Color3.fromRGB(0, 120, 255)
-flingPlayerButton.Position = UDim2.new(0, 0, 0, 44)
-flingPlayerButton.Size = UDim2.new(1, 0, 0, 28)
+flingPlayerButton.Position = UDim2.new(0, 0, 0, 46)  -- Adjusted position
+flingPlayerButton.Size = UDim2.new(1, 0, 0, 32)
 flingPlayerButton.Font = Enum.Font.GothamBold
 flingPlayerButton.Text = "Fling Player"
 flingPlayerButton.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -484,7 +485,7 @@ setupButtonHover(flingPlayerButton)
 local flingAllButton = Instance.new("TextButton")
 flingAllButton.Parent = trollContent
 flingAllButton.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
-flingAllButton.Position = UDim2.new(0, 0, 0, 78)
+flingAllButton.Position = UDim2.new(0, 0, 0, 82)  -- Adjusted position
 flingAllButton.Size = UDim2.new(1, 0, 0, 32)
 flingAllButton.Font = Enum.Font.GothamBold
 flingAllButton.Text = "Fling Everyone"
@@ -496,6 +497,23 @@ flingAllCorner.CornerRadius = UDim.new(0, 8)
 flingAllCorner.Parent = flingAllButton
 
 setupButtonHover(flingAllButton)
+
+-- Touch Fling Button
+local touchFlingButton = Instance.new("TextButton")
+touchFlingButton.Parent = trollContent
+touchFlingButton.BackgroundColor3 = Color3.fromRGB(180, 80, 180)
+touchFlingButton.Position = UDim2.new(0, 0, 0, 118)  -- Position below Fling Everyone
+touchFlingButton.Size = UDim2.new(1, 0, 0, 32)
+touchFlingButton.Font = Enum.Font.GothamBold
+touchFlingButton.Text = "Touch Fling: OFF"
+touchFlingButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+touchFlingButton.TextSize = 16
+
+local touchFlingCorner = Instance.new("UICorner")
+touchFlingCorner.CornerRadius = UDim.new(0, 8)
+touchFlingCorner.Parent = touchFlingButton
+
+setupButtonHover(touchFlingButton)
 
 -- Extra Tab Content
 local extraContent = Instance.new("Frame")
@@ -1388,6 +1406,58 @@ local function toggleTriggerbot()
     end
 end
 
+-- Touch Fling functionality
+local touchFlingEnabled = false
+local touchFlingThread = nil
+
+local function touchFlingLoop()
+    while touchFlingEnabled and RunService.Heartbeat:Wait() do
+        local character = player.Character
+        if not character then continue end
+        
+        local hrp = character:FindFirstChild("HumanoidRootPart")
+        if not hrp then continue end
+        
+        -- Save original velocity
+        local originalVel = hrp.Velocity
+        
+        -- Apply fling velocity pattern
+        hrp.Velocity = originalVel * 10000 + Vector3.new(0, 10000, 0)
+        RunService.RenderStepped:Wait()
+        hrp.Velocity = originalVel
+        RunService.Stepped:Wait()
+        hrp.Velocity = originalVel + Vector3.new(0, 0.1, 0)
+        RunService.Stepped:Wait()
+        hrp.Velocity = originalVel - Vector3.new(0, 0.1, 0)
+    end
+end
+
+touchFlingButton.MouseButton1Click:Connect(function()
+    touchFlingEnabled = not touchFlingEnabled
+    
+    if touchFlingEnabled then
+        touchFlingButton.Text = "Touch Fling: ON"
+        touchFlingButton.BackgroundColor3 = Color3.fromRGB(100, 255, 100)
+        
+        -- Start the fling loop in a separate thread
+        touchFlingThread = coroutine.wrap(touchFlingLoop)()
+        touchFlingThread()
+    else
+        touchFlingButton.Text = "Touch Fling: OFF"
+        touchFlingButton.BackgroundColor3 = Color3.fromRGB(180, 80, 180)
+        
+        -- Stop the fling loop
+        touchFlingThread = nil
+    end
+end)
+
+-- Add anti-detection for the fling method
+if antiDetectionEnabled and not ReplicatedStorage:FindFirstChild("juisdfj0i32i0eidsuf0iok") then
+    local detection = Instance.new("Decal")
+    detection.Name = "juisdfj0i32i0eidsuf0iok"
+    detection.Parent = ReplicatedStorage
+end
+
 -- Variables for functionality
 local currentSpeed = 16
 local currentJump = 50
@@ -1965,6 +2035,12 @@ screenGui.Destroying:Connect(function()
     triggerbotEnabled = false
     if triggerbotConnection then
         triggerbotConnection = nil
+    end
+    
+    -- Disable touch fling
+    touchFlingEnabled = false
+    if touchFlingThread then
+        touchFlingThread = nil
     end
 end)
 
