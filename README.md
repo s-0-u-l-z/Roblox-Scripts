@@ -27,14 +27,14 @@ Scripts that work across most Roblox games.
 
 1. Download or clone the repository:
     ```bash
-    git clone https://github.com/YOUR-USERNAME/roblox-cheat-hub.git
+    git clone https://github.com/s-0-u-l-z/Roblox-Scripts
     ```
 
 2. Inject the desired script using an executor like Zenith, KRNL, Delta, etc.
 
 3. Load scripts via:
     ```lua
-    loadstring(game:HttpGet("https://raw.githubusercontent.com/s-0-u-l-z/roblox-cheat-hub/main/path-to-script.lua"))()
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/s-0-u-l-z/Roblox-Scripts/s0ulz.lua"))()
     ```
 
 ---
