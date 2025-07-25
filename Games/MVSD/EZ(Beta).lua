@@ -28,9 +28,9 @@ local TweenService = game:GetService("TweenService")
 
 -- UI
 local Window = Rayfield:CreateWindow({
-    Name = "Exo MVSD",
-    LoadingTitle = "Loading Exo...",
-    LoadingSubtitle = "Hitbox + Soft Aim + ESP + Cooldowns + Flight",
+    Name = "Ezzzzz MVSD",
+    LoadingTitle = "Loading Ezz...",
+    LoadingSubtitle = "Ezzzzzzz win",
     ConfigurationSaving = { Enabled = false },
     Discord = { Enabled = false },
     KeySystem = false
