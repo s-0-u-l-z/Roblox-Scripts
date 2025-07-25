@@ -1,6 +1,3 @@
--- Modern Roblox GUI Script (Sleek Redesign)
--- Maintains all original functionality with improved visual design
-
 -- Services
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
@@ -22,7 +19,7 @@ local scriptEnv = {
     OldPos = nil
 }
 
--- Notification
+
 game:GetService("StarterGui"):SetCore("SendNotification", { 
     Title = "s0ulz GUI";
     Text = "Jesus Loves you";
@@ -98,7 +95,7 @@ screenGui.Enabled = false -- Start hidden
 local animationSpeed = 0.2
 local hoverAnimationSpeed = 0.15
 
--- Main Frame (Increased height for new features)
+-- Main Frame
 local mainFrame = Instance.new("Frame")
 mainFrame.Name = "MainFrame"
 mainFrame.Parent = screenGui
@@ -106,17 +103,15 @@ mainFrame.BackgroundColor3 = colors.background
 mainFrame.BorderSizePixel = 0
 mainFrame.AnchorPoint = Vector2.new(0.5, 0.5)
 mainFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
-mainFrame.Size = UDim2.new(0, 380, 0, 500) -- Increased width slightly
+mainFrame.Size = UDim2.new(0, 380, 0, 500)
 mainFrame.Active = true
 mainFrame.Draggable = true
 mainFrame.ClipsDescendants = true
 
--- Add rounded corners to MainFrame
 local corner = Instance.new("UICorner")
 corner.CornerRadius = UDim.new(0, 12)
 corner.Parent = mainFrame
 
--- Add subtle shadow effect
 local shadow = Instance.new("ImageLabel")
 shadow.Name = "Shadow"
 shadow.Parent = mainFrame
@@ -210,17 +205,17 @@ end
 setupButtonHover(minimizeButton)
 setupButtonHover(closeButton)
 
--- Minimize/restore with animations
+
 local isMinimized = false
 minimizeButton.MouseButton1Click:Connect(function()
     isMinimized = not isMinimized
     if isMinimized then
-        -- Minimize animation
+        
         TweenService:Create(mainFrame, TweenInfo.new(animationSpeed, Enum.EasingStyle.Quad), {
             Size = UDim2.new(0, 380, 0, 40)
         }):Play()
         
-        -- Fade out content (skip titleBar and tabFrame)
+        
         for _, child in pairs(mainFrame:GetChildren()) do
             if child ~= titleBar and child ~= corner and child ~= shadow and child.Name ~= "TabFrame" then
                 TweenService:Create(child, TweenInfo.new(animationSpeed), {
@@ -229,7 +224,7 @@ minimizeButton.MouseButton1Click:Connect(function()
             end
         end
         
-        -- Hide content after animation
+        
         delay(animationSpeed, function()
             for _, child in pairs(mainFrame:GetChildren()) do
                 if child ~= titleBar and child ~= corner and child ~= shadow and child.Name ~= "TabFrame" then
@@ -246,12 +241,12 @@ minimizeButton.MouseButton1Click:Connect(function()
             end
         end
         
-        -- Restore animation
+        
         TweenService:Create(mainFrame, TweenInfo.new(animationSpeed, Enum.EasingStyle.Quad), {
             Size = UDim2.new(0, 380, 0, 500)
         }):Play()
         
-        -- Fade in content
+        
         delay(animationSpeed/2, function()
             for _, child in pairs(mainFrame:GetChildren()) do
                 if child ~= titleBar and child ~= corner and child ~= shadow and child.Name ~= "TabFrame" then
@@ -264,15 +259,15 @@ minimizeButton.MouseButton1Click:Connect(function()
     end
 end)
 
--- Close button with animation
+
 closeButton.MouseButton1Click:Connect(function()
-    -- Fade out animation
+    
     TweenService:Create(mainFrame, TweenInfo.new(animationSpeed), {
         BackgroundTransparency = 1,
         Size = UDim2.new(0, 0, 0, 0)
     }):Play()
     
-    -- Destroy after animation completes
+    
     delay(animationSpeed, function()
         screenGui:Destroy()
     end)
@@ -286,11 +281,11 @@ tabFrame.BackgroundTransparency = 1
 tabFrame.Position = UDim2.new(0, 0, 0, 45)
 tabFrame.Size = UDim2.new(1, 0, 0, 36)
 
--- Updated tabs with "Games" tab and renamed "Extra" to "Scripts"
+
 local tabs = {"Main", "Teleport", "Troll", "Scripts", "Games", "PVP"}
 local tabButtons = {}
 
--- Create Tab Buttons (adjusted for 6 tabs)
+
 for i, tabName in ipairs(tabs) do
     local tabButton = Instance.new("TextButton")
     tabButton.Name = tabName .. "Tab"
@@ -313,7 +308,6 @@ for i, tabName in ipairs(tabs) do
     tabButtons[tabName] = tabButton
 end
 
--- Content Area (reduced vertical padding)
 local contentArea = Instance.new("Frame")
 contentArea.Parent = mainFrame
 contentArea.BackgroundTransparency = 1
@@ -395,7 +389,7 @@ local jumpSliderCorner = Instance.new("UICorner")
 jumpSliderCorner.CornerRadius = UDim.new(0, 4)
 jumpSliderCorner.Parent = jumpSlider
 
--- Flight Speed Slider (Moved above Flight toggle)
+-- Flight Speed Slider 
 local flightSpeedLabel = Instance.new("TextLabel")
 flightSpeedLabel.Parent = mainContent
 flightSpeedLabel.BackgroundTransparency = 1
@@ -444,7 +438,7 @@ flightCorner.Parent = flightButton
 
 setupButtonHover(flightButton, colors.accent)
 
--- Noclip Toggle (Moved below Flight toggle with purple color)
+-- Noclip Toggle
 local noclipButton = Instance.new("TextButton")
 noclipButton.Parent = mainContent
 noclipButton.BackgroundColor3 = colors.noclip -- Purple color for noclip
@@ -520,7 +514,7 @@ infTeleportCorner.Parent = infiniteTeleportButton
 
 setupButtonHover(infiniteTeleportButton)
 
--- Troll Tab Content (replaces Fling tab)
+-- Troll Tab Content
 local trollContent = Instance.new("Frame")
 trollContent.Name = "TrollContent"
 trollContent.Parent = contentArea
@@ -586,7 +580,7 @@ setupButtonHover(flingAllButton)
 local touchFlingButton = Instance.new("TextButton")
 touchFlingButton.Parent = trollContent
 touchFlingButton.BackgroundColor3 = colors.secondary
-touchFlingButton.Position = UDim2.new(0, 0, 0, 130)  -- Position below Fling Everyone
+touchFlingButton.Position = UDim2.new(0, 0, 0, 130)
 touchFlingButton.Size = UDim2.new(1, 0, 0, 32)
 touchFlingButton.Font = font
 touchFlingButton.Text = "Touch Fling: OFF"
@@ -615,7 +609,7 @@ local scriptsScroll = Instance.new("ScrollingFrame")
 scriptsScroll.Parent = scriptsContent
 scriptsScroll.BackgroundTransparency = 1
 scriptsScroll.Size = UDim2.new(1, 0, 1, 0)
-scriptsScroll.CanvasSize = UDim2.new(0, 0, 0, 420) -- Will adjust based on content
+scriptsScroll.CanvasSize = UDim2.new(0, 0, 0, 420)
 scriptsScroll.ScrollBarThickness = 6
 scriptsScroll.ScrollBarImageColor3 = colors.secondary
 
@@ -629,7 +623,7 @@ scriptsGridLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
 scriptsGridLayout.VerticalAlignment = Enum.VerticalAlignment.Top
 scriptsGridLayout.StartCorner = Enum.StartCorner.TopLeft
 
--- New Invisibility Button
+-- Invis button
 local invisibilityButton = Instance.new("TextButton")
 invisibilityButton.Parent = scriptsScroll
 invisibilityButton.BackgroundColor3 = colors.secondary
@@ -645,7 +639,7 @@ invisibilityCorner.Parent = invisibilityButton
 
 setupButtonHover(invisibilityButton)
 
--- SaturnBypasser Button (Renamed from CatBypasser)
+-- SaturnBypasser Button
 local saturnBypassButton = Instance.new("TextButton")
 saturnBypassButton.Parent = scriptsScroll
 saturnBypassButton.BackgroundColor3 = colors.secondary
@@ -709,7 +703,7 @@ chatAdminCorner.Parent = chatAdminButton
 
 setupButtonHover(chatAdminButton)
 
--- NEW VC-Unban Button
+-- VC-Unban Button
 local vcUnbanButton = Instance.new("TextButton")
 vcUnbanButton.Parent = scriptsScroll
 vcUnbanButton.BackgroundColor3 = colors.secondary
@@ -736,12 +730,12 @@ gamesContent.BackgroundTransparency = 0
 gamesContent.BackgroundColor3 = colors.background
 gamesContent.ClipsDescendants = true
 
--- Create a scrolling frame for games content
+
 local gamesScroll = Instance.new("ScrollingFrame")
 gamesScroll.Parent = gamesContent
 gamesScroll.BackgroundTransparency = 1
 gamesScroll.Size = UDim2.new(1, 0, 1, 0)
-gamesScroll.CanvasSize = UDim2.new(0, 0, 0, 270) -- Height for 5 buttons
+gamesScroll.CanvasSize = UDim2.new(0, 0, 0, 270)
 gamesScroll.ScrollBarThickness = 6
 gamesScroll.ScrollBarImageColor3 = colors.secondary
 
@@ -1015,7 +1009,6 @@ antiDetectionCorner.Parent = antiDetectionButton
 
 setupButtonHover(antiDetectionButton)
 
--- ===== FIXED ESP AND TRACER SYSTEM =====
 local espSettings = {
     Enabled = false,
     Tracers = false,
@@ -1025,7 +1018,7 @@ local espSettings = {
     TracerLines = {},
     TeamCheck = true,
     MaxDistance = 500,
-    HighlightColor = Color3.fromRGB(255, 255, 255)  -- White highlight
+    HighlightColor = Color3.fromRGB(255, 255, 255)
 }
 
 -- Invincibility variables
@@ -1041,7 +1034,7 @@ local triggerbotRange = 500 -- Max distance to trigger
 -- Hit Box Expander variables
 local hitboxExpanderEnabled = false
 local originalSizes = {}
-local hitboxExpansionAmount = 1.5 -- 50% larger hitboxes
+local hitboxExpansionAmount = 1.5
 
 -- Function to expand hit boxes
 local function expandHitBoxes(enable)
@@ -1050,7 +1043,7 @@ local function expandHitBoxes(enable)
             local char = otherPlayer.Character
             if char then
                 if enable then
-                    -- Store original sizes and expand
+                    
                     originalSizes[otherPlayer] = {}
                     for _, part in ipairs(char:GetDescendants()) do
                         if part:IsA("BasePart") then
@@ -1059,7 +1052,7 @@ local function expandHitBoxes(enable)
                         end
                     end
                 else
-                    -- Revert to original sizes
+                    
                     if originalSizes[otherPlayer] then
                         for part, size in pairs(originalSizes[otherPlayer]) do
                             if part.Parent then
@@ -1074,18 +1067,18 @@ local function expandHitBoxes(enable)
     end
 end
 
--- ===== FIXED TRACER SYSTEM =====
+
 local function createPlayerESP(targetPlayer)
     if espSettings.Players[targetPlayer] then return end
     
     local character = targetPlayer.Character
     if not character then
-        -- Wait for character to load
+        
         targetPlayer.CharacterAdded:Wait()
         character = targetPlayer.Character
     end
     
-    -- Create highlight
+    
     local highlight = Instance.new("Highlight")
     highlight.Name = targetPlayer.Name .. "_Highlight"
     highlight.OutlineColor = espSettings.HighlightColor
