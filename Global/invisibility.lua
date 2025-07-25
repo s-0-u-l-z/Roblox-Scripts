@@ -1,6 +1,6 @@
 -- Modern Roblox UI Inspired by Rayfield Gen 2 Style
 -- Includes Invisibility + Speed Boost Toggles
--- Made by xXHaNdEROXx
+-- Made by xXHaNdEROXx (modified by s0ulz)
 
 local toggleKey = Enum.KeyCode.X
 local invisEnabled = false
