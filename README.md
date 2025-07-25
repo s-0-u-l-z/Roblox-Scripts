@@ -61,6 +61,5 @@ This repository is under the MIT License. You are free to use the code for educa
 ## 🔗 Credits
 
 - [Infinite Yield](https://github.com/EdgeIY/infiniteyield)
-- [Arsenal Cheat Base](https://v3rmillion.net)
 - All script creators credited within individual files.
 
