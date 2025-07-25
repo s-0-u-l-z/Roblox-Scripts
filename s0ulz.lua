@@ -1804,7 +1804,7 @@ end)
 
 invisibilityButton.MouseButton1Click:Connect(function()
     -- Invisibility script
-    loadstring(game:HttpGet("https://pastebin.com/raw/vP6CrQJj"))()
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/s-0-u-l-z/Roblox-Scripts/refs/heads/main/Global/invisibility.lua"))()
 end)
 
 -- New scripts functionality
