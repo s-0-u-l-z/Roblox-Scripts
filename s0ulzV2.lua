@@ -10,6 +10,7 @@ local Workspace = game:GetService("Workspace")
 local VirtualInputManager = game:GetService("VirtualInputManager")
 local Lighting = game:GetService("Lighting")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local VoiceChatService = game:GetService("VoiceChatService")
 
 -- Local player reference
 local player = Players.LocalPlayer
@@ -24,7 +25,7 @@ local scriptEnv = {
 -- Notification
 game:GetService("StarterGui"):SetCore("SendNotification", { 
     Title = "s0ulz GUI";
-    Text = "Modern GUI Loaded";
+    Text = "Jesus Loves you";
     Duration = 5
 })
 
@@ -34,16 +35,18 @@ game:GetService("StarterGui"):SetCore("SendNotification", {
     Duration = 10
 })
 
--- Color Scheme
+
+-- Vibrant Color Scheme
 local colors = {
-    background = Color3.fromRGB(20, 20, 25),
-    primary = Color3.fromRGB(0, 120, 220),
-    secondary = Color3.fromRGB(40, 40, 50),
-    accent = Color3.fromRGB(0, 180, 255),
+    background = Color3.fromRGB(15, 15, 20),
+    primary = Color3.fromRGB(0, 170, 255),   -- Bright blue
+    secondary = Color3.fromRGB(30, 30, 40),
+    accent = Color3.fromRGB(0, 255, 200),     -- Cyan
     text = Color3.fromRGB(240, 240, 240),
-    error = Color3.fromRGB(220, 80, 80),
-    success = Color3.fromRGB(80, 220, 120),
-    warning = Color3.fromRGB(220, 180, 0)
+    error = Color3.fromRGB(255, 80, 80),      -- Bright red
+    success = Color3.fromRGB(80, 255, 120),   -- Bright green
+    warning = Color3.fromRGB(255, 200, 0),    -- Yellow
+    noclip = Color3.fromRGB(180, 100, 255)    -- Purple
 }
 
 -- Font
@@ -183,9 +186,9 @@ closeCorner.CornerRadius = UDim.new(0, 6)
 closeCorner.Parent = closeButton
 
 -- Button hover animations
-local function setupButtonHover(button)
+local function setupButtonHover(button, hoverColor)
     local originalColor = button.BackgroundColor3
-    local hoverColor = Color3.new(
+    hoverColor = hoverColor or Color3.new(
         math.min(originalColor.R * 1.3, 1),
         math.min(originalColor.G * 1.3, 1),
         math.min(originalColor.B * 1.3, 1)
@@ -217,9 +220,9 @@ minimizeButton.MouseButton1Click:Connect(function()
             Size = UDim2.new(0, 380, 0, 40)
         }):Play()
         
-        -- Fade out content
+        -- Fade out content (skip titleBar and tabFrame)
         for _, child in pairs(mainFrame:GetChildren()) do
-            if child ~= titleBar and child ~= corner and child ~= shadow then
+            if child ~= titleBar and child ~= corner and child ~= shadow and child.Name ~= "TabFrame" then
                 TweenService:Create(child, TweenInfo.new(animationSpeed), {
                     BackgroundTransparency = 1
                 }):Play()
@@ -229,7 +232,7 @@ minimizeButton.MouseButton1Click:Connect(function()
         -- Hide content after animation
         delay(animationSpeed, function()
             for _, child in pairs(mainFrame:GetChildren()) do
-                if child ~= titleBar and child ~= corner and child ~= shadow then
+                if child ~= titleBar and child ~= corner and child ~= shadow and child.Name ~= "TabFrame" then
                     child.Visible = false
                 end
             end
@@ -237,7 +240,7 @@ minimizeButton.MouseButton1Click:Connect(function()
     else
         -- Show content before animation
         for _, child in pairs(mainFrame:GetChildren()) do
-            if child ~= titleBar and child ~= corner and child ~= shadow then
+            if child ~= titleBar and child ~= corner and child ~= shadow and child.Name ~= "TabFrame" then
                 child.Visible = true
                 child.BackgroundTransparency = 1
             end
@@ -251,7 +254,7 @@ minimizeButton.MouseButton1Click:Connect(function()
         -- Fade in content
         delay(animationSpeed/2, function()
             for _, child in pairs(mainFrame:GetChildren()) do
-                if child ~= titleBar and child ~= corner and child ~= shadow then
+                if child ~= titleBar and child ~= corner and child ~= shadow and child.Name ~= "TabFrame" then
                     TweenService:Create(child, TweenInfo.new(animationSpeed), {
                         BackgroundTransparency = 0
                     }):Play()
@@ -277,6 +280,7 @@ end)
 
 -- Tab System
 local tabFrame = Instance.new("Frame")
+tabFrame.Name = "TabFrame"
 tabFrame.Parent = mainFrame
 tabFrame.BackgroundTransparency = 1
 tabFrame.Position = UDim2.new(0, 0, 0, 45)
@@ -391,28 +395,11 @@ local jumpSliderCorner = Instance.new("UICorner")
 jumpSliderCorner.CornerRadius = UDim.new(0, 4)
 jumpSliderCorner.Parent = jumpSlider
 
--- Flight Toggle
-local flightButton = Instance.new("TextButton")
-flightButton.Parent = mainContent
-flightButton.BackgroundColor3 = colors.secondary
-flightButton.Position = UDim2.new(0, 0, 0, 112)
-flightButton.Size = UDim2.new(1, 0, 0, 32)
-flightButton.Font = font
-flightButton.Text = "Flight: OFF"
-flightButton.TextColor3 = colors.error
-flightButton.TextSize = 14
-
-local flightCorner = Instance.new("UICorner")
-flightCorner.CornerRadius = UDim.new(0, 6)
-flightCorner.Parent = flightButton
-
-setupButtonHover(flightButton)
-
--- NEW: Flight Speed Slider
+-- Flight Speed Slider (Moved above Flight toggle)
 local flightSpeedLabel = Instance.new("TextLabel")
 flightSpeedLabel.Parent = mainContent
 flightSpeedLabel.BackgroundTransparency = 1
-flightSpeedLabel.Position = UDim2.new(0, 0, 0, 152) -- Positioned below flight button
+flightSpeedLabel.Position = UDim2.new(0, 0, 0, 112) -- Positioned above flight button
 flightSpeedLabel.Size = UDim2.new(1, 0, 0, 22)
 flightSpeedLabel.Font = font
 flightSpeedLabel.Text = "Flight Speed: 50"
@@ -423,7 +410,7 @@ flightSpeedLabel.TextXAlignment = Enum.TextXAlignment.Left
 local flightSpeedSliderBg = Instance.new("Frame")
 flightSpeedSliderBg.Parent = mainContent
 flightSpeedSliderBg.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
-flightSpeedSliderBg.Position = UDim2.new(0, 0, 0, 178)
+flightSpeedSliderBg.Position = UDim2.new(0, 0, 0, 138)
 flightSpeedSliderBg.Size = UDim2.new(1, 0, 0, 8)
 
 local flightSpeedSliderBgCorner = Instance.new("UICorner")
@@ -440,22 +427,39 @@ local flightSpeedSliderCorner = Instance.new("UICorner")
 flightSpeedSliderCorner.CornerRadius = UDim.new(0, 4)
 flightSpeedSliderCorner.Parent = flightSpeedSlider
 
--- NEW: Noclip Toggle
+-- Flight Toggle
+local flightButton = Instance.new("TextButton")
+flightButton.Parent = mainContent
+flightButton.BackgroundColor3 = colors.secondary
+flightButton.Position = UDim2.new(0, 0, 0, 152) -- Moved down below flight speed
+flightButton.Size = UDim2.new(1, 0, 0, 32)
+flightButton.Font = font
+flightButton.Text = "Flight: OFF"
+flightButton.TextColor3 = colors.error
+flightButton.TextSize = 14
+
+local flightCorner = Instance.new("UICorner")
+flightCorner.CornerRadius = UDim.new(0, 6)
+flightCorner.Parent = flightButton
+
+setupButtonHover(flightButton, colors.accent)
+
+-- Noclip Toggle (Moved below Flight toggle with purple color)
 local noclipButton = Instance.new("TextButton")
 noclipButton.Parent = mainContent
-noclipButton.BackgroundColor3 = colors.secondary
-noclipButton.Position = UDim2.new(0, 0, 0, 200) -- Positioned below flight speed slider
+noclipButton.BackgroundColor3 = colors.noclip -- Purple color for noclip
+noclipButton.Position = UDim2.new(0, 0, 0, 192) -- Positioned below flight button
 noclipButton.Size = UDim2.new(1, 0, 0, 32)
 noclipButton.Font = font
 noclipButton.Text = "Noclip: OFF"
-noclipButton.TextColor3 = colors.error
+noclipButton.TextColor3 = colors.text
 noclipButton.TextSize = 14
 
 local noclipCorner = Instance.new("UICorner")
 noclipCorner.CornerRadius = UDim.new(0, 6)
 noclipCorner.Parent = noclipButton
 
-setupButtonHover(noclipButton)
+setupButtonHover(noclipButton, Color3.new(0.8, 0.6, 0.9)) -- Light purple hover
 
 -- Teleport Tab Content
 local teleportContent = Instance.new("Frame")
@@ -705,7 +709,23 @@ chatAdminCorner.Parent = chatAdminButton
 
 setupButtonHover(chatAdminButton)
 
--- NEW: Games Tab Content
+-- NEW VC-Unban Button
+local vcUnbanButton = Instance.new("TextButton")
+vcUnbanButton.Parent = scriptsScroll
+vcUnbanButton.BackgroundColor3 = colors.secondary
+vcUnbanButton.Font = font
+vcUnbanButton.Text = "VC-Unban"
+vcUnbanButton.TextColor3 = colors.text
+vcUnbanButton.TextSize = 14
+vcUnbanButton.LayoutOrder = 6
+
+local vcUnbanCorner = Instance.new("UICorner")
+vcUnbanCorner.CornerRadius = UDim.new(0, 6)
+vcUnbanCorner.Parent = vcUnbanButton
+
+setupButtonHover(vcUnbanButton)
+
+-- Games Tab Content
 local gamesContent = Instance.new("Frame")
 gamesContent.Name = "GamesContent"
 gamesContent.Parent = contentArea
@@ -721,7 +741,7 @@ local gamesScroll = Instance.new("ScrollingFrame")
 gamesScroll.Parent = gamesContent
 gamesScroll.BackgroundTransparency = 1
 gamesScroll.Size = UDim2.new(1, 0, 1, 0)
-gamesScroll.CanvasSize = UDim2.new(0, 0, 0, 180) -- Height for 5 buttons
+gamesScroll.CanvasSize = UDim2.new(0, 0, 0, 270) -- Height for 5 buttons
 gamesScroll.ScrollBarThickness = 6
 gamesScroll.ScrollBarImageColor3 = colors.secondary
 
@@ -782,6 +802,54 @@ tsbCorner.CornerRadius = UDim.new(0, 6)
 tsbCorner.Parent = tsbButton
 
 setupButtonHover(tsbButton)
+
+-- DTI Button
+local dtiButton = Instance.new("TextButton")
+dtiButton.Parent = gamesScroll
+dtiButton.BackgroundColor3 = colors.secondary
+dtiButton.Font = font
+dtiButton.Text = "DTI"
+dtiButton.TextColor3 = colors.text
+dtiButton.TextSize = 14
+dtiButton.LayoutOrder = 4
+
+local dtiCorner = Instance.new("UICorner")
+dtiCorner.CornerRadius = UDim.new(0, 6)
+dtiCorner.Parent = dtiButton
+
+setupButtonHover(dtiButton)
+
+-- Ink Game Button
+local inkGameButton = Instance.new("TextButton")
+inkGameButton.Parent = gamesScroll
+inkGameButton.BackgroundColor3 = colors.secondary
+inkGameButton.Font = font
+inkGameButton.Text = "Ink Game"
+inkGameButton.TextColor3 = colors.text
+inkGameButton.TextSize = 14
+inkGameButton.LayoutOrder = 5
+
+local inkGameCorner = Instance.new("UICorner")
+inkGameCorner.CornerRadius = UDim.new(0, 6)
+inkGameCorner.Parent = inkGameButton
+
+setupButtonHover(inkGameButton)
+
+-- MM2 Button
+local mm2Button = Instance.new("TextButton")
+mm2Button.Parent = gamesScroll
+mm2Button.BackgroundColor3 = colors.secondary
+mm2Button.Font = font
+mm2Button.Text = "MM2"
+mm2Button.TextColor3 = colors.text
+mm2Button.TextSize = 14
+mm2Button.LayoutOrder = 6
+
+local mm2Corner = Instance.new("UICorner")
+mm2Corner.CornerRadius = UDim.new(0, 6)
+mm2Corner.Parent = mm2Button
+
+setupButtonHover(mm2Button)
 
 -- PVP Tab Content
 local pvpContent = Instance.new("Frame")
@@ -1428,7 +1496,7 @@ local function SkidFling(TargetPlayer)
             end
         until BasePart.Velocity.Magnitude > 500
             or BasePart.Parent ~= TargetPlayer.Character
-            or TargetPlayer.Parent ~= Players
+            or TargetPlayer.Parent ~= game.Player
             or TargetPlayer.Character ~= TCharacter
             or (THumanoid and THumanoid.Sit)
             or Humanoid.Health <= 0
@@ -1837,7 +1905,7 @@ local noclipConnection = nil
 local function enableNoclip()
     noclipEnabled = true
     noclipButton.Text = "Noclip: ON"
-    noclipButton.TextColor3 = colors.success
+    noclipButton.TextColor3 = colors.text
     
     if noclipConnection then
         noclipConnection:Disconnect()
@@ -1857,7 +1925,7 @@ end
 local function disableNoclip()
     noclipEnabled = false
     noclipButton.Text = "Noclip: OFF"
-    noclipButton.TextColor3 = colors.error
+    noclipButton.TextColor3 = colors.text
     
     if noclipConnection then
         noclipConnection:Disconnect()
@@ -1882,7 +1950,62 @@ noclipButton.MouseButton1Click:Connect(function()
     end
 end)
 
--- Flight functionality
+-- Flight functionality with animations
+local inputFlags = {
+    forward = false,
+    back = false,
+    left = false,
+    right = false,
+    up = false,
+    down = false
+}
+local forwardHold = 0
+local flightTracks = {}
+
+local function newAnim(id)
+    local anim = Instance.new("Animation")
+    anim.AnimationId = "rbxassetid://" .. id
+    return anim
+end
+
+local function loadFlightAnimations(character)
+    local humanoid = character:FindFirstChild("Humanoid")
+    if not humanoid then return nil end
+
+    local animations = {
+        forward = newAnim(90872539),
+        up = newAnim(90872539),
+        right1 = newAnim(136801964),
+        right2 = newAnim(142495255),
+        left1 = newAnim(136801964),
+        left2 = newAnim(142495255),
+        flyLow1 = newAnim(97169019),
+        flyLow2 = newAnim(282574440),
+        flyFast = newAnim(282574440),
+        back1 = newAnim(136801964),
+        back2 = newAnim(106772613),
+        back3 = newAnim(42070810),
+        back4 = newAnim(214744412),
+        down = newAnim(233322916),
+        idle1 = newAnim(97171309)
+    }
+
+    local tracks = {}
+    for name, anim in pairs(animations) do
+        tracks[name] = humanoid:LoadAnimation(anim)
+    end
+
+    return tracks
+end
+
+local function stopFlightAnimations()
+    for _, track in pairs(flightTracks) do
+        if track then
+            track:Stop()
+        end
+    end
+end
+
 local function enableFlight()
     if not player.Character then return end
     local humanoidRootPart = player.Character:FindFirstChild("HumanoidRootPart")
@@ -1912,6 +2035,9 @@ local function enableFlight()
     
     flightButton.Text = "Flight: ON"
     flightButton.TextColor3 = colors.success
+    
+    -- Load flight animations
+    flightTracks = loadFlightAnimations(player.Character) or {}
 end
 
 local function disableFlight()
@@ -1931,6 +2057,9 @@ local function disableFlight()
     end
     flightButton.Text = "Flight: OFF"
     flightButton.TextColor3 = colors.error
+    
+    -- Stop flight animations
+    stopFlightAnimations()
 end
 
 flightButton.MouseButton1Click:Connect(function()
@@ -1940,6 +2069,143 @@ flightButton.MouseButton1Click:Connect(function()
     else
         disableFlight()
     end
+end)
+
+-- Flight movement with animations
+RunService.RenderStepped:Connect(function(dt)
+    if not flightEnabled or not flyBodyVelocity then return end
+    
+    if not inputFlags.forward then
+        forwardHold = 0
+    end
+
+    local dir = Vector3.zero
+    local camCF = Workspace.CurrentCamera.CFrame
+
+    if inputFlags.forward then dir = dir + camCF.LookVector end
+    if inputFlags.back then dir = dir - camCF.LookVector end
+    if inputFlags.left then dir = dir - camCF.RightVector end
+    if inputFlags.right then dir = dir + camCF.RightVector end
+    if inputFlags.up then dir = dir + Vector3.new(0,1,0) end
+    if inputFlags.down then dir = dir + Vector3.new(0,-1,0) end
+
+    if dir.Magnitude > 0 then
+        dir = dir.Unit
+    end
+
+    flyBodyVelocity.Velocity = dir * flightSpeed
+    if flyBodyGyro then
+        flyBodyGyro.CFrame = camCF
+    end
+
+    -- Animation Logic
+    if inputFlags.up then
+        if not flightTracks.up or not flightTracks.up.IsPlaying then
+            stopFlightAnimations()
+            if flightTracks.up then flightTracks.up:Play() end
+        end
+    elseif inputFlags.down then
+        if not flightTracks.down or not flightTracks.down.IsPlaying then
+            stopFlightAnimations()
+            if flightTracks.down then flightTracks.down:Play() end
+        end
+    elseif inputFlags.left then
+        if not flightTracks.left1 or not flightTracks.left1.IsPlaying then
+            stopFlightAnimations()
+            if flightTracks.left1 then
+                flightTracks.left1:Play()
+                flightTracks.left1.TimePosition = 2.0
+                flightTracks.left1:AdjustSpeed(0)
+            end
+            if flightTracks.left2 then
+                flightTracks.left2:Play()
+                flightTracks.left2.TimePosition = 0.5
+                flightTracks.left2:AdjustSpeed(0)
+            end
+        end
+    elseif inputFlags.right then
+        if not flightTracks.right1 or not flightTracks.right1.IsPlaying then
+            stopFlightAnimations()
+            if flightTracks.right1 then
+                flightTracks.right1:Play()
+                flightTracks.right1.TimePosition = 1.1
+                flightTracks.right1:AdjustSpeed(0)
+            end
+            if flightTracks.right2 then
+                flightTracks.right2:Play()
+                flightTracks.right2.TimePosition = 0.5
+                flightTracks.right2:AdjustSpeed(0)
+            end
+        end
+    elseif inputFlags.back then
+        if not flightTracks.back1 or not flightTracks.back1.IsPlaying then
+            stopFlightAnimations()
+            if flightTracks.back1 then
+                flightTracks.back1:Play()
+                flightTracks.back1.TimePosition = 5.3
+                flightTracks.back1:AdjustSpeed(0)
+            end
+            if flightTracks.back2 then
+                flightTracks.back2:Play()
+                flightTracks.back2:AdjustSpeed(0)
+            end
+            if flightTracks.back3 then
+                flightTracks.back3:Play()
+                flightTracks.back3.TimePosition = 0.8
+                flightTracks.back3:AdjustSpeed(0)
+            end
+            if flightTracks.back4 then
+                flightTracks.back4:Play()
+                flightTracks.back4.TimePosition = 1
+                flightTracks.back4:AdjustSpeed(0)
+            end
+        end
+    elseif inputFlags.forward then
+        forwardHold = forwardHold + dt
+        if forwardHold >= 3 then
+            if not flightTracks.flyFast or not flightTracks.flyFast.IsPlaying then
+                stopFlightAnimations()
+                if flightTracks.flyFast then
+                    flightTracks.flyFast:Play()
+                    flightTracks.flyFast:AdjustSpeed(0.05)
+                end
+            end
+        else
+            if not flightTracks.flyLow1 or not flightTracks.flyLow1.IsPlaying then
+                stopFlightAnimations()
+                if flightTracks.flyLow1 then flightTracks.flyLow1:Play() end
+                if flightTracks.flyLow2 then flightTracks.flyLow2:Play() end
+            end
+        end
+    else
+        if not flightTracks.idle1 or not flightTracks.idle1.IsPlaying then
+            stopFlightAnimations()
+            if flightTracks.idle1 then
+                flightTracks.idle1:Play()
+                flightTracks.idle1:AdjustSpeed(0)
+            end
+        end
+    end
+end)
+
+-- Flight input handling
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed then return end
+    if input.KeyCode == Enum.KeyCode.W then inputFlags.forward = true end
+    if input.KeyCode == Enum.KeyCode.S then inputFlags.back = true end
+    if input.KeyCode == Enum.KeyCode.A then inputFlags.left = true end
+    if input.KeyCode == Enum.KeyCode.D then inputFlags.right = true end
+    if input.KeyCode == Enum.KeyCode.E then inputFlags.up = true end
+    if input.KeyCode == Enum.KeyCode.Q then inputFlags.down = true end
+end)
+
+UserInputService.InputEnded:Connect(function(input)
+    if input.KeyCode == Enum.KeyCode.W then inputFlags.forward = false end
+    if input.KeyCode == Enum.KeyCode.S then inputFlags.back = false end
+    if input.KeyCode == Enum.KeyCode.A then inputFlags.left = false end
+    if input.KeyCode == Enum.KeyCode.D then inputFlags.right = false end
+    if input.KeyCode == Enum.KeyCode.E then inputFlags.up = false end
+    if input.KeyCode == Enum.KeyCode.Q then inputFlags.down = false end
 end)
 
 -- Teleport functionality
@@ -2021,7 +2287,7 @@ end)
 
 invisibilityButton.MouseButton1Click:Connect(function()
     -- Invisibility script
-    loadstring(game:HttpGet("https://pastebin.com/raw/vP6CrQJj"))()
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/s-0-u-l-z/Roblox-Scripts/refs/heads/main/Global/invisibility.lua"))()
 end)
 
 birdPoopButton.MouseButton1Click:Connect(function()
@@ -2032,6 +2298,12 @@ end)
 chatAdminButton.MouseButton1Click:Connect(function()
     -- ChatAdmin script
     loadstring(game:HttpGet("https://raw.githubusercontent.com/s-0-u-l-z/Roblox-Scripts/refs/heads/main/Global/FE-ChatAdmin.lua"))()
+end)
+
+-- NEW VC-Unban functionality
+vcUnbanButton.MouseButton1Click:Connect(function()
+    VoiceChatService:joinVoice()
+    notif("Voice chat unban attempted", 3)
 end)
 
 -- Games tab functionality
@@ -2050,6 +2322,21 @@ tsbButton.MouseButton1Click:Connect(function()
     loadstring(game:HttpGet("https://raw.githubusercontent.com/ATrainz/Phantasm/refs/heads/main/Games/TSB.lua"))()
 end)
 
+-- NEW GAMES BUTTONS
+dtiButton.MouseButton1Click:Connect(function()
+    pcall(function()
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/hellohellohell012321/DTI-GUI-V2/main/dti_gui_v2.lua",true))()
+    end)
+end)
+
+inkGameButton.MouseButton1Click:Connect(function()
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/s-0-u-l-z/Roblox-Scripts/refs/heads/main/Games/Ink%20Game/ink.lua"))()
+end)
+
+mm2Button.MouseButton1Click:Connect(function()
+    loadstring(game:HttpGet('https://raw.githubusercontent.com/Roman34296589/SnapSanixHUB/refs/heads/main/SnapSanixHUB.lua'))()
+end)
+
 -- PVP tab functionality
 espToggle.MouseButton1Click:Connect(function()
     espSettings.Enabled = not espSettings.Enabled
@@ -2057,24 +2344,27 @@ espToggle.MouseButton1Click:Connect(function()
     if espSettings.Enabled then
         espToggle.Text = "ESP: ON"
         espToggle.BackgroundColor3 = colors.success
+        espToggle.TextColor3 = colors.text
         setupESP()
     else
         espToggle.Text = "ESP: OFF"
         espToggle.BackgroundColor3 = colors.secondary
+        espToggle.TextColor3 = colors.error
         clearAllESP()
     end
 end)
 
--- Tracer button functionality
 tracerToggle.MouseButton1Click:Connect(function()
     espSettings.Tracers = not espSettings.Tracers
     
     if espSettings.Tracers then
         tracerToggle.Text = "Tracers: ON"
         tracerToggle.BackgroundColor3 = colors.success
+        tracerToggle.TextColor3 = colors.text
     else
         tracerToggle.Text = "Tracers: OFF"
         tracerToggle.BackgroundColor3 = colors.secondary
+        tracerToggle.TextColor3 = colors.error
         -- Hide all tracers immediately
         for _, tracerLine in pairs(espSettings.TracerLines) do
             if tracerLine then
@@ -2084,28 +2374,29 @@ tracerToggle.MouseButton1Click:Connect(function()
     end
 end)
 
--- Invincible button functionality
 invincibleButton.MouseButton1Click:Connect(function()
     invincibleEnabled = not invincibleEnabled
     
     if invincibleEnabled then
         invincibleButton.Text = "Invincible: ON"
         invincibleButton.BackgroundColor3 = colors.success
+        invincibleButton.TextColor3 = colors.text
         enableInvincibility()
     else
         invincibleButton.Text = "Invincible: OFF"
         invincibleButton.BackgroundColor3 = colors.secondary
+        invincibleButton.TextColor3 = colors.error
         disableInvincibility()
     end
 end)
 
--- Aimbot button functionality (fixed)
 aimbotButton.MouseButton1Click:Connect(function()
     aimbotSettings.Enabled = not aimbotSettings.Enabled
     
     if aimbotSettings.Enabled then
         aimbotButton.Text = "Aimbot: ON"
         aimbotButton.BackgroundColor3 = colors.success
+        aimbotButton.TextColor3 = colors.text
         
         -- Start aimbot loop
         if aimbotSettings.Connection then
@@ -2131,6 +2422,7 @@ aimbotButton.MouseButton1Click:Connect(function()
     else
         aimbotButton.Text = "Aimbot: OFF"
         aimbotButton.BackgroundColor3 = colors.secondary
+        aimbotButton.TextColor3 = colors.error
         if aimbotSettings.Connection then
             aimbotSettings.Connection:Disconnect()
             aimbotSettings.Connection = nil
@@ -2138,59 +2430,63 @@ aimbotButton.MouseButton1Click:Connect(function()
     end
 end)
 
--- Triggerbot button functionality
 triggerbotButton.MouseButton1Click:Connect(function()
     triggerbotEnabled = not triggerbotEnabled
     
     if triggerbotEnabled then
         triggerbotButton.Text = "Triggerbot: ON"
         triggerbotButton.BackgroundColor3 = colors.success
+        triggerbotButton.TextColor3 = colors.text
         toggleTriggerbot()
     else
         triggerbotButton.Text = "Triggerbot: OFF"
         triggerbotButton.BackgroundColor3 = colors.secondary
+        triggerbotButton.TextColor3 = colors.error
         toggleTriggerbot()
     end
 end)
 
--- Hit Box Expander functionality
 hitboxButton.MouseButton1Click:Connect(function()
     hitboxExpanderEnabled = not hitboxExpanderEnabled
     
     if hitboxExpanderEnabled then
         hitboxButton.Text = "Hit Box Expander: ON"
         hitboxButton.BackgroundColor3 = colors.success
+        hitboxButton.TextColor3 = colors.text
         expandHitBoxes(true)
     else
         hitboxButton.Text = "Hit Box Expander: OFF"
         hitboxButton.BackgroundColor3 = colors.secondary
+        hitboxButton.TextColor3 = colors.error
         expandHitBoxes(false)
     end
 end)
 
--- Anti-Kick button functionality
 antiKickButton.MouseButton1Click:Connect(function()
     antiKickEnabled = not antiKickEnabled
     
     if antiKickEnabled then
         antiKickButton.Text = "Anti-Kick: ON"
         antiKickButton.BackgroundColor3 = colors.success
+        antiKickButton.TextColor3 = colors.text
     else
         antiKickButton.Text = "Anti-Kick: OFF"
         antiKickButton.BackgroundColor3 = colors.secondary
+        antiKickButton.TextColor3 = colors.error
     end
 end)
 
--- Anti-Detection button functionality
 antiDetectionButton.MouseButton1Click:Connect(function()
     antiDetectionEnabled = not antiDetectionEnabled
     
     if antiDetectionEnabled then
         antiDetectionButton.Text = "Anti-Detection: ON"
         antiDetectionButton.BackgroundColor3 = colors.success
+        antiDetectionButton.TextColor3 = colors.text
     else
         antiDetectionButton.Text = "Anti-Detection: OFF"
         antiDetectionButton.BackgroundColor3 = colors.secondary
+        antiDetectionButton.TextColor3 = colors.error
     end
 end)
 
@@ -2259,40 +2555,6 @@ screenGui.Destroying:Connect(function()
     touchFlingEnabled = false
     if touchFlingThread then
         touchFlingThread = nil
-    end
-end)
-
--- Flight movement
-RunService.Heartbeat:Connect(function()
-    if not flightEnabled or not flyBodyVelocity then return end
-    local moveDirection = Vector3.new(0, 0, 0)
-    if UserInputService:IsKeyDown(Enum.KeyCode.W) then
-        moveDirection = moveDirection + Workspace.CurrentCamera.CFrame.LookVector
-    end
-    if UserInputService:IsKeyDown(Enum.KeyCode.S) then
-        moveDirection = moveDirection - Workspace.CurrentCamera.CFrame.LookVector
-    end
-    if UserInputService:IsKeyDown(Enum.KeyCode.A) then
-        moveDirection = moveDirection - Workspace.CurrentCamera.CFrame.RightVector
-    end
-    if UserInputService:IsKeyDown(Enum.KeyCode.D) then
-        moveDirection = moveDirection + Workspace.CurrentCamera.CFrame.RightVector
-    end
-    if UserInputService:IsKeyDown(Enum.KeyCode.Space) then
-        moveDirection = moveDirection + Vector3.new(0, 1, 0)
-    end
-    if UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) then
-        moveDirection = moveDirection + Vector3.new(0, -1, 0)
-    end
-    if moveDirection.Magnitude > 0 then
-        moveDirection = moveDirection.Unit * flightSpeed
-    end
-    flyBodyVelocity.Velocity = moveDirection
-    if flyBodyGyro and moveDirection.Magnitude > 0 then
-        local lookVector = Vector3.new(moveDirection.X, 0, moveDirection.Z)
-        if lookVector.Magnitude > 0 then
-            flyBodyGyro.CFrame = CFrame.new(Vector3.new(), lookVector)
-        end
     end
 end)
 
