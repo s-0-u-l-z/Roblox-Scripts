@@ -1,1 +1,1 @@
-print("CatBypasser is being redeveloped releases Aug 1st!")
+loadstring(game:HttpGet("https://raw.githubusercontent.com/shadow62x/catbypass/main/upfix"))()
