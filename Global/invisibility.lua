@@ -112,7 +112,7 @@ local function toggleInvisibility()
 
 	if invisEnabled then
 		local savedpos = char:WaitForChild("HumanoidRootPart").CFrame
-		char:MoveTo(Vector3.new(-25.95, 84, 3537.55))
+		char:MoveTo(Vector3.new(-25.95, -5000, 3537.55))
 		wait(0.15)
 		local seat = Instance.new("Seat")
 		seat.Anchored = false
