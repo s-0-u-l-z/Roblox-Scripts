@@ -2596,3 +2596,17 @@ UserInputService.InputChanged:Connect(function(input)
         updateInput(input)
     end
 end)
+
+local bannerLines = {
+    "       _______        .__                         ________  ",
+    "  _____\\   _  \\  __ __|  | ________         ___  _\\_____  \\ ",
+    " /  ___/  /_\\  \\|  |  \\  | \\___   /  ______ \\  \\/ //  ____/ ",
+    " \\___ \\\\  \\_/   \\  |  /  |  /    /  /_____/  \\   / \\___ \\  ",
+    " /____  >\\___|  /____/|____/_____ \\         \\_/  /____  > ",
+    "      \\/      \\/                 \\/                   \\/  "
+}
+
+for _, line in ipairs(bannerLines) do
+    print(line)
+end
+
