@@ -14,7 +14,7 @@ A collection of scripts and tools for Roblox, ranging from universal utilities (
 Scripts that work across most Roblox games.
 
 - `IY.lua` – One of the most popular open-source admin tools.
-- `SaturnBypasser.lua` – Bypasses Roblox chat filters
+- `CatBypasser.lua` – Bypasses Roblox chat filters
 
 ### 🎯 Game-Specific Exploits
 
@@ -34,7 +34,7 @@ Scripts that work across most Roblox games.
 
 3. Load scripts via:
     ```lua
-    loadstring(game:HttpGet("https://raw.githubusercontent.com/s-0-u-l-z/Roblox-Scripts/s0ulz.lua"))()
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/s-0-u-l-z/Roblox-Scripts/s0ulzV2.lua"))()
     ```
 
 ---
