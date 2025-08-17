@@ -1,4 +1,4 @@
--- MVSD Exo Script with WindUI - Enhanced Version (FIXED)
+-- MVSD Exo Script with WindUI - Enhanced Version (FIXED) - With Emotes
 repeat task.wait() until game:IsLoaded()
 
 -- FIXED WINDUI LOADING
@@ -40,6 +40,7 @@ local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 local Camera = workspace.CurrentCamera
 local TweenService = game:GetService("TweenService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 -- Set WindUI Theme
 WindUI:SetTheme("Dark")
@@ -94,6 +95,33 @@ local SoftAimRange = 1000
 local AimHoldingKey = false
 local MoveCursor = true  -- NEW: Move actual cursor instead of camera
 
+-- NEW: EzWin Settings
+local LoopAutoKillEnabled = false
+local AutoKillConnection = nil
+
+-- =============== ANIMATION SYSTEM (NEW) ===============
+-- Play animation until the player moves function
+local function playAnimationUntilMove(animId)
+    local character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+    local humanoid = character:WaitForChild("Humanoid")
+
+    local anim = Instance.new("Animation")
+    anim.AnimationId = animId
+    local track = humanoid:LoadAnimation(anim)
+    track:Play()
+    print("Playing animation:", animId)
+
+    -- Stop when the player starts moving
+    local connection
+    connection = humanoid.Running:Connect(function(speed)
+        if speed > 0 then
+            track:Stop()
+            print("Animation stopped because player moved.")
+            connection:Disconnect()
+        end
+    end)
+end
+
 -- =============== DECLARE FUNCTIONS FIRST (FIX FOR NIL ERRORS) ===============
 local UpdateHitboxes
 local ResetHitboxes
@@ -113,11 +141,16 @@ local UpdateAllESP
 local UpdateAllESPColors
 local EnableFlight
 local DisableFlight
+local PerformKillOnPlayer
+local GetEnemyPlayers
+local LoopAutoKill
+local StopAutoKill
+local KillAllEnemies
 
--- =============== CREATE TABS ===============
+-- =============== CREATE TABS (FIXED ORDER) ===============
 local Tabs = {}
 
--- Create Sections
+-- Create Sections in desired order
 Tabs.CombatSection = Window:Section({
     Title = "Combat Features",
     Icon = "sword",
@@ -130,13 +163,20 @@ Tabs.VisualSection = Window:Section({
     Opened = true,
 })
 
+-- EzWin Section BEFORE Extra Section
+Tabs.EzWinSection = Window:Section({
+    Title = "EzWin Features",
+    Icon = "zap",
+    Opened = true,
+})
+
 Tabs.ExtraSection = Window:Section({
     Title = "Extra Features",
     Icon = "plus",
     Opened = true,
 })
 
--- Create Tabs
+-- Create Tabs in Combat Section
 Tabs.HitboxTab = Tabs.CombatSection:Tab({ 
     Title = "Hitbox", 
     Icon = "target",
@@ -155,16 +195,221 @@ Tabs.CooldownTab = Tabs.CombatSection:Tab({
     Desc = "Weapon cooldown features (Coming Soon)"
 })
 
+-- Create Tabs in Visual Section
 Tabs.ESPTab = Tabs.VisualSection:Tab({ 
     Title = "ESP", 
     Icon = "eye-off",
     Desc = "Extra sensory perception features"
 })
 
+-- Create EzWin Tab BEFORE Extra tabs
+Tabs.EzWinTab = Tabs.EzWinSection:Tab({
+    Title = "EzWin",
+    Icon = "zap",
+    Desc = "Advanced kill features"
+})
+
+-- Create Tabs in Extra Section (after EzWin)
+Tabs.EmotesTab = Tabs.ExtraSection:Tab({ 
+    Title = "Emotes", 
+    Icon = "music",
+    Desc = "Play various character animations and emotes"
+})
+
 Tabs.ExtraTab = Tabs.ExtraSection:Tab({ 
     Title = "Extra", 
     Icon = "settings",
     Desc = "Additional utility features"
+})
+
+-- =============== NEW: EZWIN FUNCTIONS ===============
+function GetEnemyPlayers()
+    local enemies = {}
+    pcall(function()
+        for _, player in ipairs(Players:GetPlayers()) do
+            if player ~= LocalPlayer and player.Character then
+                -- Team check - only target enemies
+                if not LocalPlayer.Team or not player.Team or player.Team ~= LocalPlayer.Team then
+                    local humanoid = player.Character:FindFirstChildOfClass("Humanoid")
+                    if humanoid and humanoid.Health > 0 then
+                        local leftUpperArm = player.Character:FindFirstChild("LeftUpperArm")
+                        if leftUpperArm and leftUpperArm:FindFirstChild("Part") then
+                            table.insert(enemies, player)
+                        end
+                    end
+                end
+            end
+        end
+    end)
+    return enemies
+end
+
+-- MODIFIED: Auto-equip weapon before performing kill
+function PerformKillOnPlayer(targetPlayer)
+    pcall(function()
+        if not targetPlayer or not targetPlayer.Character then return end
+        
+        -- AUTO-EQUIP WEAPON BEFORE KILL
+        local backpack = LocalPlayer:WaitForChild("Backpack")
+        local humanoid = LocalPlayer.Character:WaitForChild("Humanoid")
+        
+        -- Grab the 2nd item in the Backpack
+        local items = backpack:GetChildren()
+        local secondItem = items[2]
+        
+        if secondItem then
+            humanoid:EquipTool(secondItem)
+        else
+            warn("No second item found in inventory!")
+        end
+        
+        local leftUpperArm = targetPlayer.Character:FindFirstChild("LeftUpperArm")
+        if not leftUpperArm or not leftUpperArm:FindFirstChild("Part") then return end
+        
+        local shootGunRemote = ReplicatedStorage:FindFirstChild("Remotes")
+        if shootGunRemote then
+            shootGunRemote = shootGunRemote:FindFirstChild("ShootGun")
+            if shootGunRemote then
+                local args = {
+                    Vector3.new(-174.95948791503906, 165.3748779296875, -1.7110586166381836),
+                    Vector3.new(-176.19561767578125, 144.7963409423828, 51.71797180175781),
+                    leftUpperArm:FindFirstChild("Part"),
+                    Vector3.new(-175.43002319335938, 166.70974731445312, 6.782278537750244)
+                }
+                
+                shootGunRemote:FireServer(unpack(args))
+            end
+        end
+    end)
+end
+
+-- MODIFIED: Auto-equip weapon before loop auto kill
+function LoopAutoKill()
+    if AutoKillConnection then
+        AutoKillConnection:Disconnect()
+        AutoKillConnection = nil
+    end
+    
+    AutoKillConnection = RunService.Heartbeat:Connect(function()
+        pcall(function()
+            if not LoopAutoKillEnabled then
+                return
+            end
+            
+            -- AUTO-EQUIP WEAPON BEFORE LOOP KILL
+            local backpack = LocalPlayer:WaitForChild("Backpack")
+            local humanoid = LocalPlayer.Character:WaitForChild("Humanoid")
+            
+            -- Grab the 2nd item in the Backpack
+            local items = backpack:GetChildren()
+            local secondItem = items[2]
+            
+            if secondItem then
+                humanoid:EquipTool(secondItem)
+            else
+                warn("No second item found in inventory!")
+            end
+            
+            local enemies = GetEnemyPlayers()
+            for _, enemy in ipairs(enemies) do
+                PerformKillOnPlayer(enemy)
+                task.wait(0.1) -- Small delay between kills to prevent overwhelming the server
+            end
+        end)
+    end)
+end
+
+function StopAutoKill()
+    if AutoKillConnection then
+        AutoKillConnection:Disconnect()
+        AutoKillConnection = nil
+    end
+end
+
+-- MODIFIED: Auto-equip weapon before kill all
+function KillAllEnemies()
+    pcall(function()
+        -- AUTO-EQUIP WEAPON BEFORE KILL ALL
+        local backpack = LocalPlayer:WaitForChild("Backpack")
+        local humanoid = LocalPlayer.Character:WaitForChild("Humanoid")
+        
+        -- Grab the 2nd item in the Backpack
+        local items = backpack:GetChildren()
+        local secondItem = items[2]
+        
+        if secondItem then
+            humanoid:EquipTool(secondItem)
+        else
+            warn("No second item found in inventory!")
+            WindUI:Notify({
+                Title = "No Weapon Found",
+                Content = "No second item found in inventory! Cannot execute kill all.",
+                Icon = "alert-triangle",
+                Duration = 3,
+            })
+            return -- Don't proceed if no weapon
+        end
+        
+        local enemies = GetEnemyPlayers()
+        for _, enemy in ipairs(enemies) do
+            PerformKillOnPlayer(enemy)
+        end
+        
+        WindUI:Notify({
+            Title = "Kill All Executed",
+            Content = "Targeted " .. #enemies .. " enemy players",
+            Icon = "zap",
+            Duration = 3,
+        })
+    end)
+end
+
+-- =============== EZWIN TAB SETUP ===============
+Tabs.EzWinTab:Section({ Title = "Auto Kill Features" })
+
+Tabs.EzWinTab:Toggle({
+    Title = "Loop Auto Kill",
+    Desc = "Continuously kill all enemy players",
+    Icon = "repeat",
+    Value = false,
+    Callback = function(val) 
+        LoopAutoKillEnabled = val
+        if val then
+            LoopAutoKill()
+            WindUI:Notify({
+                Title = "Loop Auto Kill Enabled",
+                Content = "Now targeting all enemy players continuously",
+                Icon = "repeat",
+                Duration = 3,
+            })
+        else
+            StopAutoKill()
+            WindUI:Notify({
+                Title = "Loop Auto Kill Disabled",
+                Content = "Auto kill loop stopped",
+                Icon = "square",
+                Duration = 3,
+            })
+        end
+    end
+})
+
+Tabs.EzWinTab:Button({
+    Title = "Kill All",
+    Desc = "Execute kill on all enemy players once",
+    Icon = "zap",
+    Callback = function()
+        KillAllEnemies()
+    end
+})
+
+Tabs.EzWinTab:Section({ Title = "Information" })
+
+Tabs.EzWinTab:Paragraph({
+    Title = "EzWin Features",
+    Desc = "⚠️ Use responsibly!\n• Loop Auto Kill: Continuously targets enemies\n• Kill All: One-time execution on all enemies\n• Automatic team checking included",
+    Color = "Red",
+    Image = "alert-triangle"
 })
 
 -- Hitbox Expander Function
@@ -398,7 +643,6 @@ function ClearBoxESP(player)
     end)
 end
 
-
 Tabs.ESPTab:Toggle({
     Title = "Box ESP",
     Desc = "Show boxes around players",
@@ -475,6 +719,73 @@ Tabs.CooldownTab:Paragraph({
     Image = "clock"
 })
 
+-- =============== EMOTES TAB (NEW) ===============
+Tabs.EmotesTab:Section({ Title = "Animation Controls" })
+
+Tabs.EmotesTab:Paragraph({
+    Title = "Emote Instructions",
+    Desc = "Click any button below to play an animation. The animation will automatically stop when you start moving your character.",
+    Color = "Blue",
+    Image = "info"
+})
+
+Tabs.EmotesTab:Button({
+    Title = "Rocky Step",
+    Desc = "Play the Rocky Step emote animation",
+    Callback = function()
+        pcall(function()
+            playAnimationUntilMove("rbxassetid://17493148164") -- rock step emote
+            WindUI:Notify({
+                Title = "Animation Started",
+                Content = "Playing Rocky Step emote! Move to stop.",
+                Icon = "music",
+                Duration = 3,
+            })
+        end)
+    end
+})
+
+Tabs.EmotesTab:Button({
+    Title = "Zombie Walk",
+    Desc = "Play the Zombie Walk animation",
+    Callback = function()
+        pcall(function()
+            playAnimationUntilMove("rbxassetid://130586820736295") -- Zombie Walk
+            WindUI:Notify({
+                Title = "Animation Started",
+                Content = "Playing Zombie Walk! Move to stop.",
+                Icon = "music",
+                Duration = 3,
+            })
+        end)
+    end
+})
+
+Tabs.EmotesTab:Button({
+    Title = "Russian Kicks",
+    Desc = "Play the Russian Kicks dance animation",
+    Callback = function()
+        pcall(function()
+            playAnimationUntilMove("rbxassetid://17467252077") -- Russian Kicks
+            WindUI:Notify({
+                Title = "Animation Started",
+                Content = "Playing Russian Kicks! Move to stop.",
+                Icon = "music",
+                Duration = 3,
+            })
+        end)
+    end
+})
+
+Tabs.EmotesTab:Section({ Title = "Animation Info" })
+
+Tabs.EmotesTab:Paragraph({
+    Title = "How it Works",
+    Desc = "• Animations play automatically when buttons are clicked\n• Move your character to stop any playing animation\n• Only one animation can play at a time\n• Works with any character that has a Humanoid",
+    Color = "Grey",
+    Image = "help-circle"
+})
+
 function DisableFlight()
     pcall(function()
         if LocalPlayer.Character then
@@ -506,7 +817,6 @@ function DisableFlight()
         FlightConnections = {}
     end)
 end
-
 
 -- =============== EXTRA TAB ===============
 Tabs.ExtraTab:Section({ Title = "Movement" })
@@ -933,7 +1243,6 @@ function UpdateBoxESP()
     end)
 end
 
-
 -- ESP Management with Persistence and Auto-Update
 function UpdateAllESP()
     pcall(function()
@@ -1218,6 +1527,26 @@ Players.PlayerRemoving:Connect(RefreshPlayerInfo)
 task.spawn(function()
     task.wait(3) -- Wait for UI to fully load
     DisplayPlayerInfo()
+end)
+
+-- =============== CLEANUP ON SCRIPT UNLOAD ===============
+game:BindToClose(function()
+    -- Clean up ESP elements
+    ClearSkeletonESP()
+    ClearHeadESP()
+    ClearBoxESP()
+    ClearCharmsESP()
+    
+    -- Stop auto kill
+    StopAutoKill()
+    
+    -- Disable flight
+    if FlightEnabled then
+        DisableFlight()
+    end
+    
+    -- Reset hitboxes
+    ResetHitboxes()
 end)
 
 -- =============== INITIALIZATION ===============
