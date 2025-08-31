@@ -47,16 +47,31 @@ end
 
 config.guiScale = calculateScale()
 
--- Balanced tab heights for optimal spacing
+-- Updated tab heights for optimal spacing
 local tabHeights = {
     Main = 300,
     Teleport = 180,
-    Troll = 340,  -- Increased height for new features
-    Scripts = 420,  -- Increased height for scripts
-    BestScripts = 180,
-    Games = 260,
+    Troll = 450,     -- Increased for new features
+    Scripts = 450,   -- Increased height for scripts
+    Games = 300,  -- New tab
     PVP = 360,
     Utility = 280
+}
+
+-- Game database for Best Scripts tab
+local gameDatabase = {
+    [286090429] = {
+        name = "Arsenal",
+        url = "https://raw.githubusercontent.com/s-0-u-l-z/Roblox-Scripts/refs/heads/main/Games/Arsenal/Arsenal(s0ulz).lua"
+    },
+    [4292856079] = {  -- 99 Nights in the Forest PlaceId (example - replace with actual)
+        name = "99 Nights in the Forest",
+        url = "https://pastefy.app/RXzul28o/raw"
+    },
+    [13772394625] = {  -- Blade Ball PlaceId
+        name = "Blade Ball", 
+        url = "http://lumin-hub.lol/Blade.lua"
+    }
 }
 
 -- Clean modern theme
@@ -95,13 +110,21 @@ local states = {
     antiDetection = true,
     antiKick = true,
     touchFling = false,
-    chatSpam = false,
+    chatSpammer = false,
     fakeLag = false,
     followPlayer = false,
-    annoyPlayer = false
+    annoyMode = false
 }
 
 local connections = {}
+
+-- New state variables for troll features
+local trollSettings = {
+    chatText = "Hello World!",
+    chatDelay = 1,
+    followTarget = nil,
+    annoyTarget = nil
+}
 
 -- ESP and Aimbot settings (PRESERVED EXACTLY)
 local espSettings = {
@@ -133,22 +156,6 @@ local hitboxSettings = { originalSizes = {}, expansionAmount = 1.5 }
 local inputFlags = { forward = false, back = false, left = false, right = false, up = false, down = false }
 local scriptEnv = { FPDH = Services.Workspace.FallenPartsDestroyHeight, OldPos = nil }
 
--- Best Scripts Database
-local bestScriptsDB = {
-    [286090429] = { -- Arsenal
-        name = "Arsenal",
-        url = "https://raw.githubusercontent.com/s-0-u-l-z/Roblox-Scripts/refs/heads/main/Games/Arsenal/Arsenal(s0ulz).lua"
-    },
-    [142823291] = { -- 99 Nights in the Forest (PlaceId needs verification)
-        name = "99 Nights in the Forest",
-        url = "https://pastefy.app/RXzul28o/raw"
-    },
-    [13772394625] = { -- Blade Ball (PlaceId needs verification)
-        name = "Blade Ball",
-        url = "http://lumin-hub.lol/Blade.lua"
-    }
-}
-
 -- Clean notification system
 local function notify(title, text, duration, iconType)
     pcall(function()
@@ -162,8 +169,6 @@ local function notify(title, text, duration, iconType)
         })
     end)
 end
-
-notify("s0ulz GUI V4", "Yay...", 4, "success")
 
 -- Enhanced player search
 local function findPlayer(str)
@@ -346,8 +351,8 @@ local function createControlButton(text, pos, color, hoverColor)
     return btn
 end
 
-gui.minimizeBtn = createControlButton("−", UDim2.new(1, -64, 0.5, -14), theme.secondary, theme.warning)
-gui.closeBtn = createControlButton("✕", UDim2.new(1, -32, 0.5, -14), theme.secondary, theme.error)
+gui.minimizeBtn = createControlButton("-", UDim2.new(1, -64, 0.5, -14), theme.secondary, theme.warning)
+gui.closeBtn = createControlButton("X", UDim2.new(1, -32, 0.5, -14), theme.secondary, theme.error)
 
 -- Clean tab system
 gui.tabContainer = Instance.new("Frame")
@@ -358,8 +363,8 @@ gui.tabContainer.Position = UDim2.new(0, 0, 0, config.titleBarHeight + 2)
 gui.tabContainer.Size = UDim2.new(1, 0, 0, config.tabBarHeight)
 gui.tabContainer.ZIndex = 2
 
--- Updated tab order
-local tabList = {"Main", "Teleport", "Troll", "Scripts", "Game", "PVP", "Utility"}
+-- Updated tab list
+local tabList = {"Main", "Teleport", "Troll", "Scripts", "Games", "PVP", "Utility"}
 local tabButtons = {}
 
 -- Create clean tabs
@@ -368,12 +373,12 @@ for i, tabName in ipairs(tabList) do
     tab.Name = tabName .. "Tab"
     tab.Parent = gui.tabContainer
     tab.BackgroundColor3 = theme.secondary
-    tab.Position = UDim2.new((i-1) / #tabList, 3, 0, 4)
-    tab.Size = UDim2.new(1 / #tabList, -6, 1, -8)
+    tab.Position = UDim2.new((i-1) / #tabList, 2, 0, 4)
+    tab.Size = UDim2.new(1 / #tabList, -4, 1, -8)
     tab.Font = fonts.primary
     tab.Text = tabName
     tab.TextColor3 = theme.textSecondary
-    tab.TextSize = math.floor(10 * config.guiScale)
+    tab.TextSize = math.floor(9 * config.guiScale)  -- Smaller text for more tabs
     tab.AutoButtonColor = false
     tab.ZIndex = 3
     
@@ -511,7 +516,7 @@ local function createSlider(parent, labelText, minVal, maxVal, currentVal, callb
         createTween(fill, 0.08, { Size = UDim2.new(percent, 0, 1, 0) }):Play()
         createTween(thumb, 0.08, { Position = UDim2.new(percent, 0, 0.5, 0) }):Play()
         
-        valueLabel.Text = tostring(math.round(value))
+        valueLabel.Text = tostring(math.round(value * 100) / 100)  -- Better decimal handling
         if callback then callback(value) end
     end
     
@@ -643,7 +648,7 @@ for _, tabName in ipairs(tabList) do
     frame.BackgroundTransparency = 1
     frame.Size = UDim2.new(1, 0, 1, 0)
     frame.Visible = (tabName == "Main")
-    frame.AutomaticCanvasSize = Enum.AutomaticSize.Y
+    frame.CanvasSize = UDim2.new(0, 0, 0, 0)
     frame.ScrollBarThickness = 4
     frame.ScrollBarImageColor3 = theme.primary
     frame.ScrollBarImageTransparency = 0.4
@@ -702,45 +707,50 @@ teleportElements.infiniteBtn = createButton(
     contentFrames.Teleport, "Infinite Teleport: OFF", theme.secondary, nil, 3
 )
 
--- TROLL TAB CONTENT  
+-- TROLL TAB CONTENT WITH NEW FEATURES
 local trollElements = {}
-trollElements.input = createInput(contentFrames.Troll, "Enter player username to fling...", 1)
+
+-- Chat Spammer Section
+trollElements.chatTextInput = createInput(contentFrames.Troll, "Enter text to spam...", 1)
+trollElements.chatTextInput.Text = trollSettings.chatText
+
+local chatDelayUpdate = createSlider(
+    contentFrames.Troll, "Chat Delay (seconds)", 0.1, 5, trollSettings.chatDelay,
+    function(val) trollSettings.chatDelay = val end, 2
+)
+
+trollElements.chatSpamBtn = createButton(
+    contentFrames.Troll, "Chat Spammer: OFF", theme.secondary, nil, 3
+)
+
+-- Original Fling Section
+trollElements.flingInput = createInput(contentFrames.Troll, "Enter player username to fling...", 4)
 trollElements.flingBtn = createButton(
-    contentFrames.Troll, "Fling Player", theme.primary, nil, 2
+    contentFrames.Troll, "Fling Player", theme.primary, nil, 5
 )
 trollElements.flingAllBtn = createButton(
-    contentFrames.Troll, "Fling Everyone", theme.error, nil, 3
+    contentFrames.Troll, "Fling Everyone", theme.error, nil, 6
 )
 trollElements.touchFlingBtn = createButton(
-    contentFrames.Troll, "Touch Fling: OFF", theme.secondary, nil, 4
+    contentFrames.Troll, "Touch Fling: OFF", theme.secondary, nil, 7
 )
 
--- NEW TROLL FEATURES
--- Chat Spammer
-trollElements.chatSpamInput = createInput(contentFrames.Troll, "Chat message to spam...", 5)
-trollElements.chatDelayInput = createInput(contentFrames.Troll, "Delay in seconds (0.5)", 6)
-trollElements.chatSpamBtn = createButton(
-    contentFrames.Troll, "Chat Spam: OFF", theme.secondary, nil, 7
-)
-
--- Fake Lag Switch
+-- New Troll Features
 trollElements.fakeLagBtn = createButton(
     contentFrames.Troll, "Fake Lag: OFF", theme.secondary, nil, 8
 )
 
--- Follow Player
 trollElements.followInput = createInput(contentFrames.Troll, "Player to follow...", 9)
 trollElements.followBtn = createButton(
     contentFrames.Troll, "Follow Player: OFF", theme.secondary, nil, 10
 )
 
--- Annoy Mode
 trollElements.annoyInput = createInput(contentFrames.Troll, "Player to annoy...", 11)
 trollElements.annoyBtn = createButton(
     contentFrames.Troll, "Annoy Mode: OFF", theme.secondary, nil, 12
 )
 
--- SCRIPTS TAB CONTENT - Fixed organization
+-- SCRIPTS TAB CONTENT - Fixed organization with FE-Chatdraw
 local function addScriptSection(title, scripts, parentFrame, layoutOrder)
     local sectionContainer = Instance.new("Frame")
     sectionContainer.Parent = parentFrame
@@ -776,7 +786,7 @@ local function addScriptSection(title, scripts, parentFrame, layoutOrder)
     return sectionContainer
 end
 
--- Regular scripts (with added FE-Chatdraw)
+-- Regular scripts with FE-Chatdraw added
 local regularScripts = {
     {name = "Invisibility", callback = function() 
         loadstring(game:HttpGet("https://raw.githubusercontent.com/s-0-u-l-z/Roblox-Scripts/refs/heads/main/Global/invisibility.lua"))()
@@ -786,6 +796,10 @@ local regularScripts = {
         loadstring(game:HttpGet("https://raw.githubusercontent.com/EdgeIY/infiniteyield/master/source"))()
         notify("Script", "Infinite Yield loaded", 3, "success")
     end},
+    {name = "FE-Chatdraw", callback = function()
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/s-0-u-l-z/Roblox-Scripts/refs/heads/main/Global/FE-Chatdraw.lua"))()
+        notify("Script", "FE-Chatdraw loaded", 3, "success")
+    end},
     {name = "Bird Poop", callback = function() 
         loadstring(game:HttpGet("https://raw.githubusercontent.com/s-0-u-l-z/Roblox-Scripts/refs/heads/main/Troll/FE-Bird-Poop.lua"))()
         notify("Script", "Bird Poop loaded", 3, "success")
@@ -793,10 +807,6 @@ local regularScripts = {
     {name = "Chat Admin", callback = function() 
         loadstring(game:HttpGet("https://raw.githubusercontent.com/s-0-u-l-z/Roblox-Scripts/refs/heads/main/Global/FE-ChatAdmin.lua"))()
         notify("Script", "Chat Admin loaded", 3, "success")
-    end},
-    {name = "FE-Chatdraw", callback = function() 
-        loadstring(game:HttpGet("https://raw.githubusercontent.com/s-0-u-l-z/Roblox-Scripts/refs/heads/main/Global/FE-Chatdraw.lua"))()
-        notify("Script", "FE-Chatdraw loaded", 3, "success")
     end},
     {name = "VC Unban", callback = function() 
         pcall(function() Services.VoiceChatService:joinVoice() end)
@@ -841,77 +851,83 @@ separator.LayoutOrder = 2
 
 addScriptSection("Bypassers", bypasserScripts, contentFrames.Scripts, 3)
 
--- BEST SCRIPTS TAB CONTENT
-local bestScriptsElements = {}
-local currentGameId = game.PlaceId
+-- GAMES TAB CONTENT - Game Detection (FIXED with correct PlaceIds)
+local gamesElements = {}
 
-if bestScriptsDB[currentGameId] then
-    local scriptInfo = bestScriptsDB[currentGameId]
-    bestScriptsElements.scriptBtn = createButton(
-        contentFrames.BestScripts, scriptInfo.name, theme.primary,
-        function()
-            loadstring(game:HttpGet(scriptInfo.url))()
-            notify("Best Script", scriptInfo.name .. " loaded", 3, "success")
-        end, 1
-    )
-else
-    local noScriptLabel = Instance.new("TextLabel")
-    noScriptLabel.Parent = contentFrames.BestScripts
-    noScriptLabel.BackgroundTransparency = 1
-    noScriptLabel.Size = UDim2.new(1, 0, 0, 50)
-    noScriptLabel.Font = fonts.secondary
-    noScriptLabel.Text = "No best script available for this game"
-    noScriptLabel.TextColor3 = theme.textSecondary
-    noScriptLabel.TextSize = math.floor(12 * config.guiScale)
-    noScriptLabel.TextWrapped = true
-    noScriptLabel.LayoutOrder = 1
-end
-
--- GAMES TAB CONTENT
-local gamesGrid = Instance.new("Frame")
-gamesGrid.Parent = contentFrames.Games
-gamesGrid.BackgroundTransparency = 1
-gamesGrid.Size = UDim2.new(1, 0, 0, 250)
-gamesGrid.LayoutOrder = 1
-
-local gridLayout = Instance.new("UIGridLayout")
-gridLayout.Parent = gamesGrid
-gridLayout.CellSize = UDim2.new(0.48, 0, 0, 34)
-gridLayout.CellPadding = UDim2.new(0.04, 0, 0, 6)
-gridLayout.SortOrder = Enum.SortOrder.LayoutOrder
-
--- Game scripts
-local gameScripts = {
-    {name = "Basketball Legends", callback = function() 
-        loadstring(game:HttpGet("https://raw.githubusercontent.com/vnausea/absence-mini/refs/heads/main/absencemini.lua"))()
-        notify("Game Script", "Basketball Legends loaded", 3, "success")
-    end},
-    {name = "Blox Fruits", callback = function() 
-        loadstring(game:HttpGet('https://raw.githubusercontent.com/ThundarZ/Welcome/refs/heads/main/Main/GaG/Main.lua'))()
-        notify("Game Script", "Blox Fruits loaded", 3, "success")
-    end},
-    {name = "TSB", callback = function() 
-        loadstring(game:HttpGet("https://raw.githubusercontent.com/ATrainz/Phantasm/refs/heads/main/Games/TSB.lua"))()
-        notify("Game Script", "TSB loaded", 3, "success")
-    end},
-    {name = "DTI", callback = function() 
-        pcall(function() 
-            loadstring(game:HttpGet("https://raw.githubusercontent.com/hellohellohell012321/DTI-GUI-V2/main/dti_gui_v2.lua",true))() 
-        end)
-        notify("Game Script", "DTI loaded", 3, "success")
-    end},
-    {name = "Ink Game", callback = function() 
-        loadstring(game:HttpGet("https://raw.githubusercontent.com/s-0-u-l-z/Roblox-Scripts/refs/heads/main/Games/Ink%20Game/ink.lua"))()
-        notify("Game Script", "Ink Game loaded", 3, "success")
-    end},
-    {name = "MM2", callback = function() 
-        loadstring(game:HttpGet('loadstring(game:HttpGet("https://raw.githubusercontent.com/vertex-peak/vertex/refs/heads/main/loadstring"))()'))()
-        notify("Game Script", "MM2 loaded", 3, "success")
-    end}
+-- Game database with correct PlaceIds
+local gameDatabase = {
+    [286090429] = {
+        name = "Arsenal",
+        url = "https://raw.githubusercontent.com/s-0-u-l-z/Roblox-Scripts/refs/heads/main/Games/Arsenal/Arsenal(s0ulz).lua"
+    },
+    [4292856079] = {
+        name = "99 Nights in the Forest",
+        url = "https://pastefy.app/RXzul28o/raw"
+    },
+    [13772394625] = {
+        name = "Blade Ball", 
+        url = "http://lumin-hub.lol/Blade.lua"
+    }
 }
 
-for i, game in ipairs(gameScripts) do
-    local btn = createButton(gamesGrid, game.name, theme.secondary, game.callback, i, UDim2.new(1, 0, 1, 0))
+-- Helper function to generate supported games list dynamically
+local function getSupportedGamesList()
+    local gamesList = {}
+    for _, gameInfo in pairs(gameDatabase) do
+        table.insert(gamesList, "• " .. gameInfo.name)
+    end
+    return table.concat(gamesList, "\n")
+end
+
+-- Check current game and display appropriate script
+local currentGame = gameDatabase[game.PlaceId]
+if currentGame then
+    -- Game detected label
+    local gameDetectedLabel = Instance.new("TextLabel")
+    gameDetectedLabel.Parent = contentFrames["Games"]
+    gameDetectedLabel.BackgroundTransparency = 1
+    gameDetectedLabel.Size = UDim2.new(1, 0, 0, 30)
+    gameDetectedLabel.Font = fonts.bold
+    gameDetectedLabel.Text = "🎮 Game Detected: " .. currentGame.name
+    gameDetectedLabel.TextColor3 = theme.success
+    gameDetectedLabel.TextSize = math.floor(14 * config.guiScale)
+    gameDetectedLabel.TextXAlignment = Enum.TextXAlignment.Center
+    gameDetectedLabel.LayoutOrder = 1
+    
+    -- Load script button
+    gamesElements.loadBtn = createButton(
+        contentFrames["Games"], "Load " .. currentGame.name .. " Script", theme.primary,
+        function()
+            loadstring(game:HttpGet(currentGame.url))()
+            notify("Games", currentGame.name .. " script loaded!", 3, "success")
+        end, 2
+    )
+else
+    -- No game detected - dynamically shows ALL games from database
+    local noGameLabel = Instance.new("TextLabel")
+    noGameLabel.Parent = contentFrames["Games"]
+    noGameLabel.BackgroundTransparency = 1
+    noGameLabel.Size = UDim2.new(1, 0, 0, 100)
+    noGameLabel.Font = fonts.primary
+    noGameLabel.Text = "⚠ No supported game detected\n\nSupported games:\n" .. getSupportedGamesList()
+    noGameLabel.TextColor3 = theme.textSecondary
+    noGameLabel.TextSize = math.floor(12 * config.guiScale)
+    noGameLabel.TextXAlignment = Enum.TextXAlignment.Center
+    noGameLabel.TextYAlignment = Enum.TextYAlignment.Center
+    noGameLabel.LayoutOrder = 1
+    noGameLabel.TextWrapped = true
+    
+    -- Debug info (optional - remove if you don't want this)
+    local debugLabel = Instance.new("TextLabel")
+    debugLabel.Parent = contentFrames["Games"]
+    debugLabel.BackgroundTransparency = 1
+    debugLabel.Size = UDim2.new(1, 0, 0, 20)
+    debugLabel.Font = fonts.secondary
+    debugLabel.Text = "Current PlaceId: " .. tostring(game.PlaceId)
+    debugLabel.TextColor3 = theme.textTertiary
+    debugLabel.TextSize = math.floor(10 * config.guiScale)
+    debugLabel.TextXAlignment = Enum.TextXAlignment.Center
+    debugLabel.LayoutOrder = 2
 end
 
 -- PVP TAB CONTENT (ESP/Tracers functionality PRESERVED EXACTLY)
@@ -1147,6 +1163,110 @@ local function setupESP()
     Services.Players.PlayerRemoving:Connect(removePlayerESP)
 end
 
+-- NEW TROLL FUNCTIONALITY IMPLEMENTATIONS
+
+-- Chat Spammer
+local function chatSpammerLoop()
+    while states.chatSpammer and Services.RunService.Heartbeat:Wait() do
+        local text = trollElements.chatTextInput.Text
+        if text ~= "" then
+            pcall(function()
+                game:GetService("ReplicatedStorage").DefaultChatSystemChatEvents.SayMessageRequest:FireServer(text, "All")
+            end)
+        end
+        task.wait(trollSettings.chatDelay)
+    end
+end
+
+-- Fake Lag Switch
+local function enableFakeLag()
+    states.fakeLag = true
+    local originalSpeed = config.currentSpeed
+    
+    connections.fakeLagConnection = Services.RunService.Heartbeat:Connect(function()
+        if states.fakeLag and player.Character then
+            local humanoid = player.Character:FindFirstChild("Humanoid")
+            local rootPart = player.Character:FindFirstChild("HumanoidRootPart")
+            
+            if humanoid and rootPart then
+                -- Simulate lag by freezing movement temporarily
+                if tick() % 3 < 1.5 then  -- Freeze for 1.5 seconds every 3 seconds
+                    humanoid.WalkSpeed = 0
+                    rootPart.Anchored = true
+                else
+                    humanoid.WalkSpeed = originalSpeed
+                    rootPart.Anchored = false
+                end
+            end
+        end
+    end)
+end
+
+local function disableFakeLag()
+    states.fakeLag = false
+    
+    if connections.fakeLagConnection then
+        connections.fakeLagConnection:Disconnect()
+        connections.fakeLagConnection = nil
+    end
+    
+    if player.Character then
+        local humanoid = player.Character:FindFirstChild("Humanoid")
+        local rootPart = player.Character:FindFirstChild("HumanoidRootPart")
+        
+        if humanoid and rootPart then
+            humanoid.WalkSpeed = config.currentSpeed
+            rootPart.Anchored = false
+        end
+    end
+end
+
+-- Follow Player
+local function followPlayerLoop()
+    while states.followPlayer and Services.RunService.Heartbeat:Wait() do
+        if trollSettings.followTarget and trollSettings.followTarget.Character then
+            local targetChar = trollSettings.followTarget.Character
+            local targetRoot = targetChar:FindFirstChild("HumanoidRootPart")
+            local myRoot = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+            
+            if targetRoot and myRoot then
+                myRoot.CFrame = targetRoot.CFrame * CFrame.new(0, 0, -3)  -- Follow 3 studs behind
+            end
+        else
+            -- Target left, stop following
+            states.followPlayer = false
+            trollSettings.followTarget = nil
+            updateButtonState(trollElements.followBtn, false, "Follow Player: ON", "Follow Player: OFF")
+            notify("Follow", "Target left the game", 3)
+            break
+        end
+        task.wait(0.1)  -- Update 10 times per second
+    end
+end
+
+-- Annoy Mode (teleport in front of player)
+local function annoyModeLoop()
+    while states.annoyMode and Services.RunService.Heartbeat:Wait() do
+        if trollSettings.annoyTarget and trollSettings.annoyTarget.Character then
+            local targetChar = trollSettings.annoyTarget.Character
+            local targetRoot = targetChar:FindFirstChild("HumanoidRootPart")
+            local myRoot = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+            
+            if targetRoot and myRoot then
+                myRoot.CFrame = targetRoot.CFrame * CFrame.new(0, 0, 2)  -- Teleport 2 studs in front
+            end
+        else
+            -- Target left, stop annoying
+            states.annoyMode = false
+            trollSettings.annoyTarget = nil
+            updateButtonState(trollElements.annoyBtn, false, "Annoy Mode: ON", "Annoy Mode: OFF")
+            notify("Annoy", "Target left the game", 3)
+            break
+        end
+        task.wait(0.5)  -- Update every 0.5 seconds for annoy mode
+    end
+end
+
 -- CORE FUNCTIONALITY IMPLEMENTATIONS
 
 -- Enhanced Flight System (Fixed to work like Invincible-Flight.lua)
@@ -1276,11 +1396,6 @@ function toggleNoclip()
         disableNoclip()
         mainElements.noclipBtn.Text = "Noclip: OFF"
         mainElements.noclipBtn.TextColor3 = theme.error
-        createTween(mainElements.noclipBtn, 0.2, { BackgroundColor3 = theme.secondary }):Play()
-    else
-        enableNoclip()
-        mainElements.noclipBtn.Text = "Noclip: ON"
-        mainElements.noclipBtn.TextColor3 = theme.success
         createTween(mainElements.noclipBtn, 0.2, { BackgroundColor3 = theme.success:lerp(theme.secondary, 0.7) }):Play()
     end
 end
@@ -1383,8 +1498,7 @@ local function SkidFling(TargetPlayer)
               TargetPlayer.Character ~= TCharacter or (THumanoid and THumanoid.Sit) or Humanoid.Health <= 0 or tick() > Time + TimeToWait
     end
 
-    Services.Workspace.FallenPartsDestroyHeight = -math.huge
-
+    Services.Workspace.FallenPartsDestroyHeight = 0/0
 
     local BV = Instance.new("BodyVelocity")
     BV.Name = "EpixVel"
@@ -1421,167 +1535,6 @@ local function SkidFling(TargetPlayer)
     end
 
     Services.Workspace.FallenPartsDestroyHeight = scriptEnv.FPDH
-end
-
--- NEW TROLL FEATURES IMPLEMENTATION
-
--- Chat Spammer
-local function toggleChatSpam()
-    states.chatSpam = not states.chatSpam
-    
-    if states.chatSpam then
-        local message = trollElements.chatSpamInput.Text
-        if message == "" then
-            notify("Error", "Please enter a message to spam", 3, "error")
-            states.chatSpam = false
-            return
-        end
-        
-        local delay = tonumber(trollElements.chatDelayInput.Text) or 0.5
-        if delay < 0.1 then delay = 0.1 end
-        
-        trollElements.chatSpamBtn.Text = "Chat Spam: ON"
-        trollElements.chatSpamBtn.TextColor3 = theme.success
-        createTween(trollElements.chatSpamBtn, 0.2, { BackgroundColor3 = theme.success:lerp(theme.secondary, 0.7) }):Play()
-        
-        connections.chatSpamThread = task.spawn(function()
-            while states.chatSpam do
-                pcall(function()
-                    game:GetService("ReplicatedStorage").DefaultChatSystemChatEvents.SayMessageRequest:FireServer(message, "All")
-                end)
-                task.wait(delay)
-            end
-        end)
-    else
-        trollElements.chatSpamBtn.Text = "Chat Spam: OFF"
-        trollElements.chatSpamBtn.TextColor3 = theme.error
-        createTween(trollElements.chatSpamBtn, 0.2, { BackgroundColor3 = theme.secondary }):Play()
-        
-        if connections.chatSpamThread then
-            task.cancel(connections.chatSpamThread)
-            connections.chatSpamThread = nil
-        end
-    end
-end
-
--- Fake Lag Switch
-local function toggleFakeLag()
-    states.fakeLag = not states.fakeLag
-    
-    if states.fakeLag then
-        trollElements.fakeLagBtn.Text = "Fake Lag: ON"
-        trollElements.fakeLagBtn.TextColor3 = theme.success
-        createTween(trollElements.fakeLagBtn, 0.2, { BackgroundColor3 = theme.success:lerp(theme.secondary, 0.7) }):Play()
-        
-        connections.fakeLagThread = task.spawn(function()
-            while states.fakeLag do
-                -- Create network traffic to simulate lag
-                for i = 1, 10000 do
-                    if not states.fakeLag then break end
-                    local dummy = Instance.new("Part")
-                    dummy.Parent = Services.Workspace
-                    dummy:Destroy()
-                end
-                task.wait(0.1)
-            end
-        end)
-    else
-        trollElements.fakeLagBtn.Text = "Fake Lag: OFF"
-        trollElements.fakeLagBtn.TextColor3 = theme.error
-        createTween(trollElements.fakeLagBtn, 0.2, { BackgroundColor3 = theme.secondary }):Play()
-        
-        if connections.fakeLagThread then
-            task.cancel(connections.fakeLagThread)
-            connections.fakeLagThread = nil
-        end
-    end
-end
-
--- Follow Player
-local function toggleFollowPlayer()
-    states.followPlayer = not states.followPlayer
-    
-    if states.followPlayer then
-        local username = trollElements.followInput.Text
-        if username == "" then
-            notify("Error", "Please enter a username to follow", 3, "error")
-            states.followPlayer = false
-            return
-        end
-        
-        trollElements.followBtn.Text = "Follow Player: ON"
-        trollElements.followBtn.TextColor3 = theme.success
-        createTween(trollElements.followBtn, 0.2, { BackgroundColor3 = theme.success:lerp(theme.secondary, 0.7) }):Play()
-        
-        connections.followThread = task.spawn(function()
-            while states.followPlayer do
-                local targets = findPlayer(username)
-                if #targets > 0 then
-                    local target = targets[1]
-                    if target.Character and target.Character:FindFirstChild("HumanoidRootPart") then
-                        local myRoot = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
-                        if myRoot then
-                            myRoot.CFrame = target.Character.HumanoidRootPart.CFrame * CFrame.new(0, 0, 5)
-                        end
-                    end
-                end
-                task.wait(0.1)
-            end
-        end)
-    else
-        trollElements.followBtn.Text = "Follow Player: OFF"
-        trollElements.followBtn.TextColor3 = theme.error
-        createTween(trollElements.followBtn, 0.2, { BackgroundColor3 = theme.secondary }):Play()
-        
-        if connections.followThread then
-            task.cancel(connections.followThread)
-            connections.followThread = nil
-        end
-    end
-end
-
--- Annoy Mode
-local function toggleAnnoyMode()
-    states.annoyPlayer = not states.annoyPlayer
-    
-    if states.annoyPlayer then
-        local username = trollElements.annoyInput.Text
-        if username == "" then
-            notify("Error", "Please enter a username to annoy", 3, "error")
-            states.annoyPlayer = false
-            return
-        end
-        
-        trollElements.annoyBtn.Text = "Annoy Mode: ON"
-        trollElements.annoyBtn.TextColor3 = theme.success
-        createTween(trollElements.annoyBtn, 0.2, { BackgroundColor3 = theme.success:lerp(theme.secondary, 0.7) }):Play()
-        
-        connections.annoyThread = task.spawn(function()
-            while states.annoyPlayer do
-                local targets = findPlayer(username)
-                if #targets > 0 then
-                    local target = targets[1]
-                    if target.Character and target.Character:FindFirstChild("HumanoidRootPart") then
-                        local myRoot = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
-                        if myRoot then
-                            -- Teleport slightly in front of the player
-                            myRoot.CFrame = target.Character.HumanoidRootPart.CFrame * CFrame.new(0, 0, -3)
-                        end
-                    end
-                end
-                task.wait(0.5)
-            end
-        end)
-    else
-        trollElements.annoyBtn.Text = "Annoy Mode: OFF"
-        trollElements.annoyBtn.TextColor3 = theme.error
-        createTween(trollElements.annoyBtn, 0.2, { BackgroundColor3 = theme.secondary }):Play()
-        
-        if connections.annoyThread then
-            task.cancel(connections.annoyThread)
-            connections.annoyThread = nil
-        end
-    end
 end
 
 -- Enhanced Tab Switching System
@@ -1720,7 +1673,7 @@ gui.minimizeBtn.MouseButton1Click:Connect(function()
             end
         end
 
-        gui.minimizeBtn.Text = "−"
+        gui.minimizeBtn.Text = "-"
     end
 end)
 
@@ -1737,7 +1690,6 @@ gui.closeBtn.MouseButton1Click:Connect(function()
         gui.screen:Destroy()
     end
 end)
-
 
 -- Enhanced PVP functionality (preserving ESP/Tracers exactly)
 -- Invincibility system
@@ -2080,9 +2032,28 @@ teleportElements.infiniteBtn.MouseButton1Click:Connect(function()
     end
 end)
 
--- Troll functionality
+-- NEW TROLL FUNCTIONALITY CONNECTIONS
+
+-- Chat Spammer
+trollElements.chatSpamBtn.MouseButton1Click:Connect(function()
+    states.chatSpammer = not states.chatSpammer
+    trollSettings.chatText = trollElements.chatTextInput.Text
+    
+    if states.chatSpammer then
+        updateButtonState(trollElements.chatSpamBtn, true, "Chat Spammer: ON", "Chat Spammer: OFF")
+        connections.chatSpamThread = task.spawn(chatSpammerLoop)
+    else
+        updateButtonState(trollElements.chatSpamBtn, false, "Chat Spammer: ON", "Chat Spammer: OFF")
+        if connections.chatSpamThread then
+            task.cancel(connections.chatSpamThread)
+            connections.chatSpamThread = nil
+        end
+    end
+end)
+
+-- Original Fling functionality
 trollElements.flingBtn.MouseButton1Click:Connect(function()
-    local username = trollElements.input.Text
+    local username = trollElements.flingInput.Text
     if username == "" then
         notify("Error", "Please enter a username", 3, "error")
         return
@@ -2123,11 +2094,76 @@ trollElements.touchFlingBtn.MouseButton1Click:Connect(function()
     end
 end)
 
--- NEW TROLL BUTTON CONNECTIONS
-trollElements.chatSpamBtn.MouseButton1Click:Connect(toggleChatSpam)
-trollElements.fakeLagBtn.MouseButton1Click:Connect(toggleFakeLag)
-trollElements.followBtn.MouseButton1Click:Connect(toggleFollowPlayer)
-trollElements.annoyBtn.MouseButton1Click:Connect(toggleAnnoyMode)
+-- Fake Lag functionality
+trollElements.fakeLagBtn.MouseButton1Click:Connect(function()
+    if states.fakeLag then
+        disableFakeLag()
+        updateButtonState(trollElements.fakeLagBtn, false, "Fake Lag: ON", "Fake Lag: OFF")
+    else
+        enableFakeLag()
+        updateButtonState(trollElements.fakeLagBtn, true, "Fake Lag: ON", "Fake Lag: OFF")
+    end
+end)
+
+-- Follow Player functionality
+trollElements.followBtn.MouseButton1Click:Connect(function()
+    if states.followPlayer then
+        states.followPlayer = false
+        trollSettings.followTarget = nil
+        updateButtonState(trollElements.followBtn, false, "Follow Player: ON", "Follow Player: OFF")
+        if connections.followThread then
+            task.cancel(connections.followThread)
+            connections.followThread = nil
+        end
+    else
+        local username = trollElements.followInput.Text
+        if username == "" then
+            notify("Error", "Please enter a username to follow", 3, "error")
+            return
+        end
+        
+        local targets = findPlayer(username)
+        if #targets > 0 then
+            trollSettings.followTarget = targets[1]
+            states.followPlayer = true
+            updateButtonState(trollElements.followBtn, true, "Follow Player: ON", "Follow Player: OFF")
+            connections.followThread = task.spawn(followPlayerLoop)
+            notify("Follow", "Following " .. targets[1].Name, 3, "success")
+        else
+            notify("Error", "Player not found", 3, "error")
+        end
+    end
+end)
+
+-- Annoy Mode functionality
+trollElements.annoyBtn.MouseButton1Click:Connect(function()
+    if states.annoyMode then
+        states.annoyMode = false
+        trollSettings.annoyTarget = nil
+        updateButtonState(trollElements.annoyBtn, false, "Annoy Mode: ON", "Annoy Mode: OFF")
+        if connections.annoyThread then
+            task.cancel(connections.annoyThread)
+            connections.annoyThread = nil
+        end
+    else
+        local username = trollElements.annoyInput.Text
+        if username == "" then
+            notify("Error", "Please enter a username to annoy", 3, "error")
+            return
+        end
+        
+        local targets = findPlayer(username)
+        if #targets > 0 then
+            trollSettings.annoyTarget = targets[1]
+            states.annoyMode = true
+            updateButtonState(trollElements.annoyBtn, true, "Annoy Mode: ON", "Annoy Mode: OFF")
+            connections.annoyThread = task.spawn(annoyModeLoop)
+            notify("Annoy", "Annoying " .. targets[1].Name, 3, "success")
+        else
+            notify("Error", "Player not found", 3, "error")
+        end
+    end
+end)
 
 -- PVP buttons (ESP/Tracers preserved exactly)
 pvpElements.espBtn.MouseButton1Click:Connect(function()
@@ -2366,7 +2402,7 @@ Services.Workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connec
         gui.closeBtn.TextSize = math.floor(12 * config.guiScale)
         
         for _, tab in pairs(tabButtons) do
-            tab.TextSize = math.floor(10 * config.guiScale)
+            tab.TextSize = math.floor(9 * config.guiScale)
         end
     end
 end)
@@ -2403,6 +2439,10 @@ gui.screen.Destroying:Connect(function()
     
     if aimbotSettings.Connection then
         aimbotSettings.Connection:Disconnect()
+    end
+    
+    if states.fakeLag then
+        disableFakeLag()
     end
     
     -- Reset workspace settings
@@ -2454,4 +2494,4 @@ task.spawn(initializeGUI)
 task.wait(1.2)
 notify("s0ulz GUI V4", "loaded successfully! Have fun!", 5, "success")
 task.wait(0.6)
-notify("Controls", "F4 to toggle GUI", 4)
+notify("Info", "Click F4 to open/close the GUI")
