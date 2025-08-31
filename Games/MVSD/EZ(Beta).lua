@@ -1,7 +1,6 @@
--- MVSD Exo Script with WindUI - Enhanced Version (FIXED) - With Emotes
 repeat task.wait() until game:IsLoaded()
 
--- FIXED WINDUI LOADING
+-- WINDUI LOADING
 local WindUI
 local success, result = pcall(function()
     local loaded = loadstring(game:HttpGet("https://github.com/Footagesus/WindUI/releases/latest/download/main.lua"))()
@@ -99,6 +98,11 @@ local MoveCursor = true  -- NEW: Move actual cursor instead of camera
 local LoopAutoKillEnabled = false
 local AutoKillConnection = nil
 
+-- NEW: Auto Shoot Settings
+local AutoShootEnabled = false
+local AutoShootConnection = nil
+local ShotTargets = {} -- Track who we've already shot to prevent spam
+
 -- =============== ANIMATION SYSTEM (NEW) ===============
 -- Play animation until the player moves function
 local function playAnimationUntilMove(animId)
@@ -146,11 +150,13 @@ local GetEnemyPlayers
 local LoopAutoKill
 local StopAutoKill
 local KillAllEnemies
+local IsPlayerVisible
+local AutoShootLoop
 
--- =============== CREATE TABS (FIXED ORDER) ===============
+-- =============== CREATE TABS ===============
 local Tabs = {}
 
--- Create Sections in desired order
+-- Create Sections
 Tabs.CombatSection = Window:Section({
     Title = "Combat Features",
     Icon = "sword",
@@ -163,20 +169,20 @@ Tabs.VisualSection = Window:Section({
     Opened = true,
 })
 
--- EzWin Section BEFORE Extra Section
-Tabs.EzWinSection = Window:Section({
-    Title = "EzWin Features",
-    Icon = "zap",
-    Opened = true,
-})
-
 Tabs.ExtraSection = Window:Section({
     Title = "Extra Features",
     Icon = "plus",
     Opened = true,
 })
 
--- Create Tabs in Combat Section
+-- NEW: EzWin Section
+Tabs.EzWinSection = Window:Section({
+    Title = "EzWin",
+    Icon = "zap",
+    Opened = true,
+})
+
+-- Create Tabs
 Tabs.HitboxTab = Tabs.CombatSection:Tab({ 
     Title = "Hitbox", 
     Icon = "target",
@@ -195,21 +201,20 @@ Tabs.CooldownTab = Tabs.CombatSection:Tab({
     Desc = "Weapon cooldown features (Coming Soon)"
 })
 
--- Create Tabs in Visual Section
 Tabs.ESPTab = Tabs.VisualSection:Tab({ 
     Title = "ESP", 
     Icon = "eye-off",
     Desc = "Extra sensory perception features"
 })
 
--- Create EzWin Tab BEFORE Extra tabs
+-- NEW: EzWin Tab (MOVED ABOVE EXTRA)
 Tabs.EzWinTab = Tabs.EzWinSection:Tab({
-    Title = "EzWin",
+    Title = "Autokill",
     Icon = "zap",
     Desc = "Advanced kill features"
 })
 
--- Create Tabs in Extra Section (after EzWin)
+-- NEW: Emotes Tab (Added)
 Tabs.EmotesTab = Tabs.ExtraSection:Tab({ 
     Title = "Emotes", 
     Icon = "music",
@@ -221,6 +226,35 @@ Tabs.ExtraTab = Tabs.ExtraSection:Tab({
     Icon = "settings",
     Desc = "Additional utility features"
 })
+
+-- =============== WALL DETECTION SYSTEM ===============
+function IsPlayerVisible(targetPlayer)
+    if not LocalPlayer.Character or not targetPlayer.Character then
+        return false
+    end
+    
+    local localRoot = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+    local targetRoot = targetPlayer.Character:FindFirstChild("HumanoidRootPart")
+    
+    if not localRoot or not targetRoot then
+        return false
+    end
+    
+    -- Raycast to check for walls/obstacles
+    local origin = localRoot.Position
+    local direction = (targetRoot.Position - origin)
+    local distance = direction.Magnitude
+    direction = direction.Unit
+    
+    local raycastParams = RaycastParams.new()
+    raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
+    raycastParams.FilterDescendantsInstances = {LocalPlayer.Character, targetPlayer.Character}
+    
+    local raycastResult = workspace:Raycast(origin, direction * distance, raycastParams)
+    
+    -- If no obstacle hit, target is visible
+    return raycastResult == nil
+end
 
 -- =============== NEW: EZWIN FUNCTIONS ===============
 function GetEnemyPlayers()
@@ -283,7 +317,7 @@ function PerformKillOnPlayer(targetPlayer)
     end)
 end
 
--- MODIFIED: Auto-equip weapon before loop auto kill
+-- FIXED: Loop Auto Kill - Now spams multiple times
 function LoopAutoKill()
     if AutoKillConnection then
         AutoKillConnection:Disconnect()
@@ -306,14 +340,16 @@ function LoopAutoKill()
             
             if secondItem then
                 humanoid:EquipTool(secondItem)
-            else
-                warn("No second item found in inventory!")
             end
             
             local enemies = GetEnemyPlayers()
-            for _, enemy in ipairs(enemies) do
-                PerformKillOnPlayer(enemy)
-                task.wait(0.1) -- Small delay between kills to prevent overwhelming the server
+            
+            -- SPAM KILL MULTIPLE TIMES (10x per frame)
+            for i = 1, 10 do
+                for _, enemy in ipairs(enemies) do
+                    PerformKillOnPlayer(enemy)
+                end
+                task.wait(0.01) -- Very small delay between spam cycles
             end
         end)
     end)
@@ -351,17 +387,103 @@ function KillAllEnemies()
         end
         
         local enemies = GetEnemyPlayers()
-        for _, enemy in ipairs(enemies) do
-            PerformKillOnPlayer(enemy)
+        
+        -- SPAM KILL ALL ENEMIES MULTIPLE TIMES (5x)
+        for i = 1, 5 do
+            for _, enemy in ipairs(enemies) do
+                PerformKillOnPlayer(enemy)
+            end
+            task.wait(0.05) -- Small delay between spam cycles
         end
         
         WindUI:Notify({
             Title = "Kill All Executed",
-            Content = "Targeted " .. #enemies .. " enemy players",
+            Content = "Targeted " .. #enemies .. " enemy players (spammed 5x)",
             Icon = "zap",
             Duration = 3,
         })
     end)
+end
+
+-- NEW: Auto Shoot Function with Wall Detection (SINGLE SHOT)
+function AutoShootAtTarget(targetPlayer)
+    pcall(function()
+        if not targetPlayer or not targetPlayer.Character then return end
+        
+        -- AUTO-EQUIP WEAPON BEFORE SHOOT
+        local backpack = LocalPlayer:WaitForChild("Backpack")
+        local humanoid = LocalPlayer.Character:WaitForChild("Humanoid")
+        
+        -- Grab the 2nd item in the Backpack
+        local items = backpack:GetChildren()
+        local secondItem = items[2]
+        
+        if secondItem then
+            humanoid:EquipTool(secondItem)
+        else
+            warn("No second item found in inventory!")
+            return
+        end
+        
+        local leftUpperArm = targetPlayer.Character:FindFirstChild("LeftUpperArm")
+        if not leftUpperArm or not leftUpperArm:FindFirstChild("Part") then return end
+        
+        local shootGunRemote = ReplicatedStorage:FindFirstChild("Remotes")
+        if shootGunRemote then
+            shootGunRemote = shootGunRemote:FindFirstChild("ShootGun")
+            if shootGunRemote then
+                local args = {
+                    Vector3.new(-174.95948791503906, 165.3748779296875, -1.7110586166381836),
+                    Vector3.new(-176.19561767578125, 144.7963409423828, 51.71797180175781),
+                    leftUpperArm:FindFirstChild("Part"),
+                    Vector3.new(-175.43002319335938, 166.70974731445312, 6.782278537750244)
+                }
+                
+                shootGunRemote:FireServer(unpack(args))
+                print("Auto Shot: " .. targetPlayer.Name .. " - Target eliminated!")
+                
+                -- Mark this target as shot to prevent spam
+                ShotTargets[targetPlayer] = true
+                
+                -- Clear the shot marker after 3 seconds
+                task.spawn(function()
+                    task.wait(3)
+                    ShotTargets[targetPlayer] = nil
+                end)
+            end
+        end
+    end)
+end
+
+function AutoShootLoop()
+    if AutoShootConnection then
+        AutoShootConnection:Disconnect()
+        AutoShootConnection = nil
+    end
+    
+    AutoShootConnection = RunService.Heartbeat:Connect(function()
+        pcall(function()
+            if not AutoShootEnabled then return end
+            
+            local enemies = GetEnemyPlayers()
+            for _, enemy in ipairs(enemies) do
+                -- Only shoot if we haven't shot this target recently
+                if not ShotTargets[enemy] and IsPlayerVisible(enemy) then
+                    AutoShootAtTarget(enemy)
+                    task.wait(0.1) -- Small delay between shots
+                end
+            end
+        end)
+    end)
+end
+
+function StopAutoShoot()
+    if AutoShootConnection then
+        AutoShootConnection:Disconnect()
+        AutoShootConnection = nil
+    end
+    -- Clear shot targets when stopping
+    ShotTargets = {}
 end
 
 -- =============== EZWIN TAB SETUP ===============
@@ -378,7 +500,7 @@ Tabs.EzWinTab:Toggle({
             LoopAutoKill()
             WindUI:Notify({
                 Title = "Loop Auto Kill Enabled",
-                Content = "Now targeting all enemy players continuously",
+                Content = "Now spamming kills on all enemy players continuously",
                 Icon = "repeat",
                 Duration = 3,
             })
@@ -396,7 +518,7 @@ Tabs.EzWinTab:Toggle({
 
 Tabs.EzWinTab:Button({
     Title = "Kill All",
-    Desc = "Execute kill on all enemy players once",
+    Desc = "Execute kill on all enemy players once ",
     Icon = "zap",
     Callback = function()
         KillAllEnemies()
@@ -407,7 +529,7 @@ Tabs.EzWinTab:Section({ Title = "Information" })
 
 Tabs.EzWinTab:Paragraph({
     Title = "EzWin Features",
-    Desc = "⚠️ Use responsibly!\n• Loop Auto Kill: Continuously targets enemies\n• Kill All: One-time execution on all enemies\n• Automatic team checking included",
+    Desc = "⚠️ you better win lol!\n• Loop Auto Kill: Continuously targets enemies \n• Kill All: One-time execution on all enemies \n• Auto Shoot: Wall detection system for visible enemies\n• Automatic team checking included",
     Color = "Red",
     Image = "alert-triangle"
 })
@@ -496,7 +618,7 @@ Tabs.AimTab:Section({ Title = "Aimbot Settings" })
 
 Tabs.AimTab:Toggle({
     Title = "Silent Aim",
-    Desc = "Enable smooth cursor movement to targets",
+    Desc = "Enable smooth mouse cursor movement to targets",
     Icon = "crosshair",
     Value = false,
     Callback = function(val) 
@@ -557,6 +679,35 @@ Tabs.AimTab:Keybind({
     end
 })
 
+Tabs.AimTab:Section({ Title = "Auto Shoot" })
+
+Tabs.AimTab:Toggle({
+    Title = "Auto Shoot",
+    Desc = "Automatically shoot visible enemies",
+    Icon = "zap",
+    Value = false,
+    Callback = function(val) 
+        AutoShootEnabled = val
+        if val then
+            AutoShootLoop()
+            WindUI:Notify({
+                Title = "Auto Shoot Enabled",
+                Content = "Now targeting visible enemies",
+                Icon = "crosshair",
+                Duration = 3,
+            })
+        else
+            StopAutoShoot()
+            WindUI:Notify({
+                Title = "Auto Shoot Disabled",
+                Content = "Auto shooting stopped",
+                Icon = "square",
+                Duration = 3,
+            })
+        end
+    end
+})
+
 -- Clearing Functions
 function ClearSkeletonESP(player)
     pcall(function()
@@ -592,7 +743,17 @@ Tabs.ESPTab:Toggle({
     Value = false,
     Callback = function(val) 
         SkeletonESPEnabled = val 
-        if not val then ClearSkeletonESP() end
+        if not val then 
+            -- Force clear all skeleton ESP
+            for player, connections in pairs(SkeletonESP) do
+                for _, connection in ipairs(connections) do
+                    if connection.line then
+                        connection.line:Remove()
+                    end
+                end
+            end
+            SkeletonESP = {}
+        end
     end
 })
 
@@ -621,7 +782,9 @@ Tabs.ESPTab:Toggle({
     Value = false,
     Callback = function(val) 
         HeadESPEnabled = val 
-        if not val then ClearHeadESP() end
+        if not val then 
+            ClearHeadESP() 
+        end
     end
 })
 
@@ -650,7 +813,9 @@ Tabs.ESPTab:Toggle({
     Value = false,
     Callback = function(val) 
         BoxESPEnabled = val 
-        if not val then ClearBoxESP() end
+        if not val then 
+            ClearBoxESP() 
+        end
     end
 })
 
@@ -685,7 +850,9 @@ Tabs.ESPTab:Toggle({
     Value = false,
     Callback = function(val) 
         CharmsESPEnabled = val 
-        if not val then ClearCharmsESP() end
+        if not val then 
+            ClearCharmsESP() 
+        end
     end
 })
 
@@ -696,6 +863,18 @@ Tabs.ESPTab:Toggle({
     Value = false,
     Callback = function(val) 
         ESPTeamCheck = val 
+        -- Force refresh ESP when team check changes
+        if val then
+            -- Clear ESP for teammates
+            for _, player in ipairs(Players:GetPlayers()) do
+                if player ~= LocalPlayer and LocalPlayer.Team and player.Team == LocalPlayer.Team then
+                    ClearSkeletonESP(player)
+                    ClearHeadESP(player)
+                    ClearBoxESP(player)
+                    ClearCharmsESP(player)
+                end
+            end
+        end
     end
 })
 
@@ -724,7 +903,7 @@ Tabs.EmotesTab:Section({ Title = "Animation Controls" })
 
 Tabs.EmotesTab:Paragraph({
     Title = "Emote Instructions",
-    Desc = "Click any button below to play an animation. The animation will automatically stop when you start moving your character.",
+    Desc = "Click emote and get free emote simple as that ngl",
     Color = "Blue",
     Image = "info"
 })
@@ -775,15 +954,6 @@ Tabs.EmotesTab:Button({
             })
         end)
     end
-})
-
-Tabs.EmotesTab:Section({ Title = "Animation Info" })
-
-Tabs.EmotesTab:Paragraph({
-    Title = "How it Works",
-    Desc = "• Animations play automatically when buttons are clicked\n• Move your character to stop any playing animation\n• Only one animation can play at a time\n• Works with any character that has a Humanoid",
-    Color = "Grey",
-    Image = "help-circle"
 })
 
 function DisableFlight()
@@ -961,7 +1131,7 @@ function UpdateHitboxes()
     end)
 end
 
--- =============== ENHANCED CURSOR AIM ===============
+-- =============== FIXED: MOUSE CURSOR AIM (NOT CAMERA) ===============
 function GetClosestTarget()
     local shortest = math.huge
     local closest = nil
@@ -986,7 +1156,7 @@ function GetClosestTarget()
                                 if dist < shortest then
                                     shortest = dist
                                     closest = player
-                                    closestPos = pos
+                                    closestPos = screenPos
                                 end
                             end
                         end
@@ -1243,7 +1413,7 @@ function UpdateBoxESP()
     end)
 end
 
--- ESP Management with Persistence and Auto-Update
+-- FIXED: ESP Management with proper clearing
 function UpdateAllESP()
     pcall(function()
         for _, player in ipairs(Players:GetPlayers()) do
@@ -1434,6 +1604,9 @@ task.spawn(function()
     end
 end)
 
+-- =============== START AUTO SHOOT SYSTEM (READY BUT NOT ACTIVE) ===============
+-- Auto shoot will start when toggle is enabled
+
 -- =============== MAIN RENDER LOOP ===============
 RunService.RenderStepped:Connect(function()
     pcall(function()
@@ -1448,23 +1621,21 @@ RunService.RenderStepped:Connect(function()
         if BoxESPEnabled then UpdateBoxESP() end
         -- Charms ESP updates automatically via Highlight objects
         
-        -- Enhanced Cursor Aim (with separate team check)
+        -- FIXED: Mouse Cursor Aim (NOT camera movement)
         if SoftAimEnabled and AimHoldingKey and LocalPlayer.Character then
-            local target, targetPos = GetClosestTarget()
-            if target and targetPos then
-                local screenPos = Camera:WorldToViewportPoint(targetPos)
-                if screenPos.Z > 0 then
-                    local currentMouse = UserInputService:GetMouseLocation()
-                    local targetMouse = Vector2.new(screenPos.X, screenPos.Y)
-                    
-                    -- Smooth cursor movement
-                    local newPos = currentMouse:Lerp(targetMouse, Smoothness)
-                    
-                    -- Move the cursor (this requires special handling in Roblox)
-                    -- Note: Direct cursor movement is limited in Roblox, so we'll use camera movement as fallback
-                    local currentCF = Camera.CFrame
-                    local targetCF = CFrame.new(currentCF.Position, targetPos)
-                    Camera.CFrame = currentCF:Lerp(targetCF, Smoothness * 0.5)
+            local target, targetScreenPos = GetClosestTarget()
+            if target and targetScreenPos then
+                local currentMouse = UserInputService:GetMouseLocation()
+                local targetMouse = Vector2.new(targetScreenPos.X, targetScreenPos.Y)
+                
+                -- Smooth mouse movement using mousemoverel (if available)
+                local deltaX = (targetMouse.X - currentMouse.X) * Smoothness
+                local deltaY = (targetMouse.Y - currentMouse.Y) * Smoothness
+                
+                -- Note: Direct mouse movement is limited in Roblox client
+                -- This is a conceptual implementation
+                if mousemoverel then
+                    mousemoverel(deltaX, deltaY)
                 end
             end
         end
