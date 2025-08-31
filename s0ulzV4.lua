@@ -64,14 +64,30 @@ local gameDatabase = {
         name = "Arsenal",
         url = "https://raw.githubusercontent.com/s-0-u-l-z/Roblox-Scripts/refs/heads/main/Games/Arsenal/Arsenal(s0ulz).lua"
     },
-    [4292856079] = {  -- 99 Nights in the Forest PlaceId (example - replace with actual)
+    [7326934954] = {  -- 99 Nights in the Forest GameID (example - replace with actual)
         name = "99 Nights in the Forest",
         url = "https://pastefy.app/RXzul28o/raw"
     },
-    [13772394625] = {  -- Blade Ball PlaceId
+    [4777817887] = {  -- Blade Ball GameID
         name = "Blade Ball", 
         url = "http://lumin-hub.lol/Blade.lua"
-    }
+    },
+
+	[4348829796] = {
+		name = "MVSD",
+		url = "https://raw.githubusercontent.com/s-0-u-l-z/Roblox-Scripts/refs/heads/main/Games/MVSD/EZ.lua"
+	},
+
+	[4931927012] = {
+		name = "Basketball Legends",
+		url = "https://raw.githubusercontent.com/vnausea/absence-mini/refs/heads/main/absencemini.lua"
+	},
+
+	[66654135] = {
+		name = "MM2",
+		url = "https://raw.githubusercontent.com/vertex-peak/vertex/refs/heads/main/loadstring"
+	}
+
 }
 
 -- Clean modern theme
@@ -854,22 +870,6 @@ addScriptSection("Bypassers", bypasserScripts, contentFrames.Scripts, 3)
 -- GAMES TAB CONTENT - Game Detection (FIXED with correct PlaceIds)
 local gamesElements = {}
 
--- Game database with correct PlaceIds
-local gameDatabase = {
-    [286090429] = {
-        name = "Arsenal",
-        url = "https://raw.githubusercontent.com/s-0-u-l-z/Roblox-Scripts/refs/heads/main/Games/Arsenal/Arsenal(s0ulz).lua"
-    },
-    [4292856079] = {
-        name = "99 Nights in the Forest",
-        url = "https://pastefy.app/RXzul28o/raw"
-    },
-    [13772394625] = {
-        name = "Blade Ball", 
-        url = "http://lumin-hub.lol/Blade.lua"
-    }
-}
-
 -- Helper function to generate supported games list dynamically
 local function getSupportedGamesList()
     local gamesList = {}
@@ -880,7 +880,7 @@ local function getSupportedGamesList()
 end
 
 -- Check current game and display appropriate script
-local currentGame = gameDatabase[game.PlaceId]
+local currentGame = gameDatabase[game.GameId]
 if currentGame then
     -- Game detected label
     local gameDetectedLabel = Instance.new("TextLabel")
@@ -923,7 +923,7 @@ else
     debugLabel.BackgroundTransparency = 1
     debugLabel.Size = UDim2.new(1, 0, 0, 20)
     debugLabel.Font = fonts.secondary
-    debugLabel.Text = "Current PlaceId: " .. tostring(game.PlaceId)
+    debugLabel.Text = "Current GameId: " .. tostring(game.GameId)
     debugLabel.TextColor3 = theme.textTertiary
     debugLabel.TextSize = math.floor(10 * config.guiScale)
     debugLabel.TextXAlignment = Enum.TextXAlignment.Center
