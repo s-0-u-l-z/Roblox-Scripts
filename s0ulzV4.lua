@@ -82,7 +82,7 @@
 		},
 		[3508322461] = {
 			name = "Jujitsu Shenanigans",
-			url = ""
+			url = "https://raw.githubusercontent.com/NotEnoughJack/localplayerscripts/refs/heads/main/script"
 		},
 		[372226183] = {
 			name = "FTF",
