@@ -99,7 +99,13 @@
 		[6931042565] = {
 			name = "Volleyball Legends",
 			url = "https://raw.githubusercontent.com/scriptshubzeck/Zeckhubv1/refs/heads/main/zeckhub"
+		},
+
+		[7436755782] = {
+			name = "Grow A Garden",
+			url = "loadstring(game:HttpGet('https://raw.githubusercontent.com/ThundarZ/Welcome/refs/heads/main/Main/GaG/Main.lua'))()"
 		}
+
 	}
 
 	local theme = {
