@@ -1,4 +1,4 @@
-	local Services = {
+local Services = {
 		Players = game:GetService("Players"),
 		UserInputService = game:GetService("UserInputService"),
 		TweenService = game:GetService("TweenService"),
@@ -48,14 +48,14 @@
 	local tabHeights = {
 		Main = 300,
 		Teleport = 180,
-		Troll = 450,
+		Troll = 350, -- Reduced since annoy mode is removed
 		Scripts = 450,
 		Games = 300,
-		PVP = 420, -- Increased for aimbot/triggerbot
+		PVP = 420,
 		Utility = 280
 	}
 
-	local gameDatabase = {
+local gameDatabase = {
 		[286090429] = {
 			name = "Arsenal",
 			url = "https://raw.githubusercontent.com/s-0-u-l-z/Roblox-Scripts/refs/heads/main/Games/Arsenal/Arsenal(s0ulz).lua"
@@ -100,12 +100,14 @@
 			name = "Volleyball Legends",
 			url = "https://raw.githubusercontent.com/scriptshubzeck/Zeckhubv1/refs/heads/main/zeckhub"
 		},
-
 		[7436755782] = {
 			name = "Grow A Garden",
-			url = "loadstring(game:HttpGet('https://raw.githubusercontent.com/ThundarZ/Welcome/refs/heads/main/Main/GaG/Main.lua'))()"
+			url = "https://raw.githubusercontent.com/ThundarZ/Welcome/refs/heads/main/Main/GaG/Main.lua"
+		},
+		[6035872082] = {
+			name = "RIVALS",
+			url = "https://soluna-script.vercel.app/main.lua"
 		}
-
 	}
 
 	local theme = {
@@ -146,7 +148,6 @@
 		chatSpammer = false,
 		fakeLag = false,
 		followPlayer = false,
-		annoyMode = false,
 		aimbot = false
 	}
 
@@ -156,7 +157,8 @@
 		chatText = "Hello World!",
 		chatDelay = 1,
 		followTarget = nil,
-		annoyTarget = nil
+		fakeLagWaitTime = 0.05,
+		fakeLagDelayTime = 0.4
 	}
 
 	-- ESP and Aimbot settings
@@ -802,7 +804,7 @@
 		contentFrames.Teleport, "Infinite Teleport: OFF", theme.secondary, nil, 3
 	)
 
-	-- TROLL TAB CONTENT
+	-- TROLL TAB CONTENT (Updated - removed annoy mode)
 	local trollElements = {}
 
 	trollElements.chatTextInput = createInput(contentFrames.Troll, "Enter text to spam...", 1)
@@ -817,29 +819,35 @@
 		contentFrames.Troll, "Chat Spammer: OFF", theme.secondary, nil, 3
 	)
 
-	trollElements.flingInput = createInput(contentFrames.Troll, "Enter player username to fling...", 4)
-	trollElements.flingBtn = createButton(
-		contentFrames.Troll, "Fling Player", theme.primary, nil, 5
+	-- Enhanced Fake Lag section
+	local fakeLagWaitUpdate = createSlider(
+		contentFrames.Troll, "Fake Lag Wait Time", 0.01, 1, trollSettings.fakeLagWaitTime,
+		function(val) trollSettings.fakeLagWaitTime = val end, 4
 	)
-	trollElements.flingAllBtn = createButton(
-		contentFrames.Troll, "Fling Everyone", theme.error, nil, 6
-	)
-	trollElements.touchFlingBtn = createButton(
-		contentFrames.Troll, "Touch Fling: OFF", theme.secondary, nil, 7
+
+	local fakeLagDelayUpdate = createSlider(
+		contentFrames.Troll, "Fake Lag Delay Time", 0.1, 2, trollSettings.fakeLagDelayTime,
+		function(val) trollSettings.fakeLagDelayTime = val end, 5
 	)
 
 	trollElements.fakeLagBtn = createButton(
-		contentFrames.Troll, "Fake Lag: OFF", theme.secondary, nil, 8
+		contentFrames.Troll, "Fake Lag: OFF", theme.secondary, nil, 6
 	)
 
-	trollElements.followInput = createInput(contentFrames.Troll, "Player to follow...", 9)
+	trollElements.flingInput = createInput(contentFrames.Troll, "Enter player username to fling...", 7)
+	trollElements.flingBtn = createButton(
+		contentFrames.Troll, "Fling Player", theme.primary, nil, 8
+	)
+	trollElements.flingAllBtn = createButton(
+		contentFrames.Troll, "Fling Everyone", theme.error, nil, 9
+	)
+	trollElements.touchFlingBtn = createButton(
+		contentFrames.Troll, "Touch Fling: OFF", theme.secondary, nil, 10
+	)
+
+	trollElements.followInput = createInput(contentFrames.Troll, "Player to follow...", 11)
 	trollElements.followBtn = createButton(
-		contentFrames.Troll, "Follow Player: OFF", theme.secondary, nil, 10
-	)
-
-	trollElements.annoyInput = createInput(contentFrames.Troll, "Player to annoy...", 11)
-	trollElements.annoyBtn = createButton(
-		contentFrames.Troll, "Annoy Mode: OFF", theme.secondary, nil, 12
+		contentFrames.Troll, "Follow Player: OFF", theme.secondary, nil, 12
 	)
 
 	-- SCRIPTS TAB CONTENT
@@ -1393,37 +1401,59 @@
 	end
 
 	-- TROLL FUNCTIONALITY
+
+	-- Fixed Chat Spammer with proper chat system detection
 	local function chatSpammerLoop()
 		while states.chatSpammer and Services.RunService.Heartbeat:Wait() do
 			local text = trollElements.chatTextInput.Text
 			if text ~= "" then
 				pcall(function()
-					game:GetService("ReplicatedStorage").DefaultChatSystemChatEvents.SayMessageRequest:FireServer(text, "All")
+					-- Try multiple chat methods for better compatibility
+					if Services.ReplicatedStorage:FindFirstChild("DefaultChatSystemChatEvents") then
+						-- Default chat system
+						local chatEvents = Services.ReplicatedStorage.DefaultChatSystemChatEvents
+						if chatEvents:FindFirstChild("SayMessageRequest") then
+							chatEvents.SayMessageRequest:FireServer(text, "All")
+						end
+					elseif game:GetService("Chat"):FindFirstChild("Chat") then
+						-- Legacy chat
+						game:GetService("Chat"):Chat(player.Character.Head, text, Enum.ChatColor.White)
+					else
+						-- TextChatService (new chat)
+						if game:GetService("TextChatService") then
+							local textChatService = game:GetService("TextChatService")
+							if textChatService.ChatInputBarConfiguration then
+								textChatService.ChatInputBarConfiguration.TargetTextChannel:SendAsync(text)
+							end
+						end
+					end
 				end)
 			end
 			task.wait(trollSettings.chatDelay)
 		end
 	end
 
+	-- Enhanced Fake Lag from FakeLag.lua
 	local function enableFakeLag()
 		states.fakeLag = true
-		local originalSpeed = config.currentSpeed
+		
+		if connections.fakeLagConnection then connections.fakeLagConnection:Disconnect() end
 		
 		connections.fakeLagConnection = Services.RunService.Heartbeat:Connect(function()
 			if states.fakeLag and player.Character then
-				local humanoid = player.Character:FindFirstChild("Humanoid")
-				local rootPart = player.Character:FindFirstChild("HumanoidRootPart")
+				local character = player.Character
+				local rootPart = character:FindFirstChild("HumanoidRootPart")
 				
-				if humanoid and rootPart then
-					if tick() % 3 < 1.5 then
-						humanoid.WalkSpeed = 0
-						rootPart.Anchored = true
-					else
-						humanoid.WalkSpeed = originalSpeed
+				if rootPart then
+					-- Use the enhanced fake lag from FakeLag.lua
+					rootPart.Anchored = true
+					task.wait(trollSettings.fakeLagDelayTime)
+					if rootPart and rootPart.Parent then
 						rootPart.Anchored = false
 					end
 				end
 			end
+			task.wait(trollSettings.fakeLagWaitTime)
 		end)
 	end
 
@@ -1436,25 +1466,47 @@
 		end
 		
 		if player.Character then
-			local humanoid = player.Character:FindFirstChild("Humanoid")
 			local rootPart = player.Character:FindFirstChild("HumanoidRootPart")
-			
-			if humanoid and rootPart then
-				humanoid.WalkSpeed = config.currentSpeed
+			if rootPart then
 				rootPart.Anchored = false
 			end
 		end
 	end
 
+	-- Enhanced Follow Player with instant teleportation and humanoid copying
 	local function followPlayerLoop()
 		while states.followPlayer and Services.RunService.Heartbeat:Wait() do
 			if trollSettings.followTarget and trollSettings.followTarget.Character then
 				local targetChar = trollSettings.followTarget.Character
 				local targetRoot = targetChar:FindFirstChild("HumanoidRootPart")
-				local myRoot = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+				local targetHumanoid = targetChar:FindFirstChild("Humanoid")
+				local myChar = player.Character
+				local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
+				local myHumanoid = myChar and myChar:FindFirstChild("Humanoid")
 				
-				if targetRoot and myRoot then
-					myRoot.CFrame = targetRoot.CFrame * CFrame.new(0, 0, -3)
+				if targetRoot and myRoot and targetHumanoid and myHumanoid then
+					-- Instant teleportation right next to the target
+					myRoot.CFrame = targetRoot.CFrame * CFrame.new(2, 0, 0) -- Right next to them
+					
+					-- Copy humanoid properties for exact mimicking
+					myHumanoid.WalkSpeed = targetHumanoid.WalkSpeed
+					myHumanoid.JumpPower = targetHumanoid.JumpPower
+					myHumanoid.Health = targetHumanoid.Health
+					
+					-- Copy animations if possible
+					if targetHumanoid.MoveDirection.Magnitude > 0 then
+						myHumanoid:Move(targetHumanoid.MoveDirection, true)
+					end
+					
+					-- Match sitting state
+					if targetHumanoid.Sit then
+						myHumanoid.Sit = true
+					else
+						myHumanoid.Sit = false
+					end
+					
+					-- Match platform stand
+					myHumanoid.PlatformStand = targetHumanoid.PlatformStand
 				end
 			else
 				states.followPlayer = false
@@ -1462,27 +1514,7 @@
 				updateButtonState(trollElements.followBtn, false, "Follow Player: ON", "Follow Player: OFF")
 				break
 			end
-			task.wait(0.1)
-		end
-	end
-
-	local function annoyModeLoop()
-		while states.annoyMode and Services.RunService.Heartbeat:Wait() do
-			if trollSettings.annoyTarget and trollSettings.annoyTarget.Character then
-				local targetChar = trollSettings.annoyTarget.Character
-				local targetRoot = targetChar:FindFirstChild("HumanoidRootPart")
-				local myRoot = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
-				
-				if targetRoot and myRoot then
-					myRoot.CFrame = targetRoot.CFrame * CFrame.new(0, 0, 2)
-				end
-			else
-				states.annoyMode = false
-				trollSettings.annoyTarget = nil
-				updateButtonState(trollElements.annoyBtn, false, "Annoy Mode: ON", "Annoy Mode: OFF")
-				break
-			end
-			task.wait(0.5)
+			task.wait(0.03) -- Faster update rate for better synchronization
 		end
 	end
 
@@ -1556,6 +1588,17 @@
 			if track then track:Stop() end
 		end
 		config.flightTracks = {}
+	end
+
+	-- Flight toggle with F key functionality
+	local function toggleFlightState()
+		if states.flight then
+			disableFlight()
+			states.flight = false
+		else
+			enableFlight()
+			states.flight = true
+		end
 	end
 
 	function toggleFlight()
@@ -1965,7 +2008,7 @@
 		end
 	end)
 
-	-- INPUT HANDLING
+	-- INPUT HANDLING (Enhanced with F key flight toggle)
 	Services.RunService.RenderStepped:Connect(function(dt)
 		if not states.flight or not connections.flyBodyVelocity then return end
 		
@@ -2050,6 +2093,9 @@
 		elseif key == Enum.KeyCode.D then inputFlags.right = true
 		elseif key == Enum.KeyCode.E then inputFlags.up = true
 		elseif key == Enum.KeyCode.Q then inputFlags.down = true
+		elseif key == Enum.KeyCode.F then
+			-- F key toggles flight state without changing button
+			toggleFlightState()
 		elseif key == Enum.KeyCode.F4 then
 			if gui.screen.Enabled then
 				createTween(gui.main, config.animSpeed, {
@@ -2110,7 +2156,7 @@
 		end
 	end)
 
-	-- Troll functionality
+	-- Troll functionality (Updated with enhanced fake lag and fixed chat)
 	trollElements.chatSpamBtn.MouseButton1Click:Connect(function()
 		states.chatSpammer = not states.chatSpammer
 		trollSettings.chatText = trollElements.chatTextInput.Text
@@ -2162,6 +2208,7 @@
 		end
 	end)
 
+	-- Enhanced Fake Lag button
 	trollElements.fakeLagBtn.MouseButton1Click:Connect(function()
 		if states.fakeLag then
 			disableFakeLag()
@@ -2172,6 +2219,7 @@
 		end
 	end)
 
+	-- Enhanced Follow Player button
 	trollElements.followBtn.MouseButton1Click:Connect(function()
 		if states.followPlayer then
 			states.followPlayer = false
@@ -2191,29 +2239,6 @@
 				states.followPlayer = true
 				updateButtonState(trollElements.followBtn, true, "Follow Player: ON", "Follow Player: OFF")
 				connections.followThread = task.spawn(followPlayerLoop)
-			end
-		end
-	end)
-
-	trollElements.annoyBtn.MouseButton1Click:Connect(function()
-		if states.annoyMode then
-			states.annoyMode = false
-			trollSettings.annoyTarget = nil
-			updateButtonState(trollElements.annoyBtn, false, "Annoy Mode: ON", "Annoy Mode: OFF")
-			if connections.annoyThread then
-				task.cancel(connections.annoyThread)
-				connections.annoyThread = nil
-			end
-		else
-			local username = trollElements.annoyInput.Text
-			if username == "" then return end
-			
-			local targets = findPlayer(username)
-			if #targets > 0 then
-				trollSettings.annoyTarget = targets[1]
-				states.annoyMode = true
-				updateButtonState(trollElements.annoyBtn, true, "Annoy Mode: ON", "Annoy Mode: OFF")
-				connections.annoyThread = task.spawn(annoyModeLoop)
 			end
 		end
 	end)
@@ -2499,3 +2524,5 @@
 	notify("s0ulz GUI V4", "Enhanced edition loaded successfully!", 5, "success")
 	task.wait(0.6)
 	notify("Info", "Press F4 to open/close the GUI")
+	task.wait(0.4)
+	notify("Flight Control", "Press F to toggle flight on/off", 4)
