@@ -19,7 +19,7 @@ Scripts that work across most Roblox games.
 ### 🎯 Game-Specific Exploits
 
 #### Arsenal/Aimbot
-- `Aimbot+Triggerbot.lua` – Smooth aimbot and auto-trigger system.
+- `Arsenal(s0ulz).lua` – Smooth aimbot and auto-trigger system.
 
 ---
 
@@ -34,7 +34,7 @@ Scripts that work across most Roblox games.
 
 3. Load scripts via:
     ```lua
-    loadstring(game:HttpGet("https://raw.githubusercontent.com/s-0-u-l-z/Roblox-Scripts/s0ulzV2.lua"))()
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/s-0-u-l-z/Roblox-Scripts/s0ulzV4.lua"))()
     ```
 
 ---
