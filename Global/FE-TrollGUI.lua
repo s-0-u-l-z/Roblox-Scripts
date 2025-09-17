@@ -1,0 +1,1 @@
+loadstring(game:HttpGet("https://raw.githubusercontent.com/yorfriendfromschool1/Sky-Hub/main/FE%20Trolling%20GUI.lua"))()
