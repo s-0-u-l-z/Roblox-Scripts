@@ -23,55 +23,115 @@ local scriptCoroutine = nil
 
 -- ===== HTTP REQUEST METHOD DETECTION =====
 local REQ = nil
-local HTTP_METHODS = {
-    "http.request", "syn.request", "KRNL_request", "krnl.request", "request",
-    "fluxus.request", "http_request", "http_request_async", "request_async", "proto_request"
+
+-- List of possible HTTP request functions
+local httpChecks = {
+    -- Base Roblox-like http libraries
+    ["http.get"] = function()
+        if http and type(http.get) == "function" then
+            return pcall(function() return http.get("https://example.com") end)
+        end
+    end,
+    ["http.request"] = function()
+        if http and type(http.request) == "function" then
+            return pcall(function() return http.request({Url="https://example.com", Method="GET"}) end)
+        end
+    end,
+    ["http_request"] = function()
+        if type(http_request) == "function" then
+            return pcall(function() return http_request({Url="https://example.com", Method="GET"}) end)
+        end
+    end,
+    ["request"] = function()
+        if type(request) == "function" then
+            return pcall(function() return request({Url="https://example.com", Method="GET"}) end)
+        end
+    end,
+    ["request_http"] = function()
+        if type(request_http) == "function" then
+            return pcall(function() return request_http({Url="https://example.com", Method="GET"}) end)
+        end
+    end,
+    ["request.get"] = function()
+        if request and type(request.get) == "function" then
+            return pcall(function() return request.get("https://example.com") end)
+        end
+    end,
+
+    -- Synapse and common executors
+    ["syn.request"] = function()
+        if syn and type(syn.request) == "function" then
+            return pcall(function() return syn.request({Url="https://example.com", Method="GET"}) end)
+        end
+    end,
+    ["krnl.request"] = function()
+        if krnl and type(krnl.request) == "function" then
+            return pcall(function() return krnl.request({Url="https://example.com", Method="GET"}) end)
+        end
+    end,
+    ["oxygen.request"] = function()
+        if oxygen and type(oxygen.request) == "function" then
+            return pcall(function() return oxygen.request({Url="https://example.com", Method="GET"}) end)
+        end
+    end,
+    ["zenith.request"] = function()
+        if zenith and type(zenith.request) == "function" then
+            return pcall(function() return zenith.request({Url="https://example.com", Method="GET"}) end)
+        end
+    end,
+    ["solara.request"] = function()
+        if solara and type(solara.request) == "function" then
+            return pcall(function() return solara.request({Url="https://example.com", Method="GET"}) end)
+        end
+    end,
+    ["fluxus.request"] = function()
+        if fluxus and type(fluxus.request) == "function" then
+            return pcall(function() return fluxus.request({Url="https://example.com", Method="GET"}) end)
+        end
+    end,
+    ["electron.request"] = function()
+        if electron and type(electron.request) == "function" then
+            return pcall(function() return electron.request({Url="https://example.com", Method="GET"}) end)
+        end
+    end,
+    ["scriptware.request"] = function()
+        if scriptware and type(scriptware.request) == "function" then
+            return pcall(function() return scriptware.request({Url="https://example.com", Method="GET"}) end)
+        end
+    end,
+    ["delta.request"] = function()
+        if delta and type(delta.request) == "function" then
+            return pcall(function() return delta.request({Url="https://example.com", Method="GET"}) end)
+        end
+    end,
+    ["valyse.request"] = function()
+        if valyse and type(valyse.request) == "function" then
+            return pcall(function() return valyse.request({Url="https://example.com", Method="GET"}) end)
+        end
+    end,
+    ["codex.request"] = function()
+        if codex and type(codex.request) == "function" then
+            return pcall(function() return codex.request({Url="https://example.com", Method="GET"}) end)
+        end
+    end,
+    ["requests.get"] = function()
+        if requests and type(requests.get) == "function" then
+            return pcall(function() return requests.get("https://example.com") end)
+        end
+    end,
 }
 
-local function getFunction(path)
-    local parts = string.split(path, ".")
-    local current = _G
-    
-    for _, part in ipairs(parts) do
-        if type(current) == "table" and current[part] then
-            current = current[part]
-        else
-            return nil
-        end
+-- Test each one and pick the first that works
+for name, tester in pairs(httpChecks) do
+    local ok, result = tester()
+    if ok and result then
+        print("✅ " .. name .. " works!")
+        REQ = tester -- store the working method wrapper
+        break
+    else
+        print("❌ " .. name .. " failed!")
     end
-    
-    return type(current) == "function" and current or nil
 end
-
-local function testHttpMethod(method)
-    local success, result = pcall(function()
-        return method({
-            Url = "https://httpbin.org/get",
-            Method = "GET"
-        })
-    end)
-    
-    if success and result and result.StatusCode then
-        local statusCode = tonumber(result.StatusCode)
-        return statusCode and statusCode >= 200 and statusCode < 300
-    end
-    
-    return false
-end
-
-local function detectHttpMethod()
-    for _, methodName in ipairs(HTTP_METHODS) do
-        local method = getFunction(methodName)
-        if method then
-            if testHttpMethod(method) then
-                return method
-            end
-        end
-    end
-    return nil
-end
-
-REQ = detectHttpMethod()
 
 -- ===== SHARED FUNCTIONS =====
 local function httpGet(url)
