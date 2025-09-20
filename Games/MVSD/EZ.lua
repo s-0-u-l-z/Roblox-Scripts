@@ -66,7 +66,7 @@ local Window = WindUI:CreateWindow({
 
 -- =============== ENHANCED SETTINGS ===============
 local HeadSize = 20
-local Transparency = 0.7
+local Transparency = 70 -- Changed to percentage
 local HitboxColor = Color3.fromRGB(0, 255, 0)
 local IsEnabled = false
 local HitboxTeamCheck = false  -- Separate team check for hitbox
@@ -88,10 +88,9 @@ local ESPTeamCheck = false  -- Separate team check for ESP
 -- Soft Aim Settings with separate team check and cursor movement
 local SoftAimEnabled = false
 local SoftAimKey = Enum.UserInputType.MouseButton2
-local Smoothness = 0.15
+local Smoothness = 15 -- Changed to percentage
 local SoftAimTeamCheck = false  -- Separate team check for aimbot
-local SoftAimRange = 1000
-local AimHoldingKey = false
+local SoftAimToggled = false -- NEW: Toggle state for aimbot
 local MoveCursor = true  -- NEW: Move actual cursor instead of camera
 
 -- NEW: EzWin Settings
@@ -103,26 +102,37 @@ local AutoShootEnabled = false
 local AutoShootConnection = nil
 local ShotTargets = {} -- Track who we've already shot to prevent spam
 
+-- =============== ESP STORAGE ===============
+local SkeletonESP = {}
+local HeadESP = {}
+local BoxESP = {}
+local CharmsESP = {}
+
+-- ESP Update Connection
+local ESPUpdateConnection = nil
+
 -- =============== ANIMATION SYSTEM (NEW) ===============
 -- Play animation until the player moves function
 local function playAnimationUntilMove(animId)
-    local character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
-    local humanoid = character:WaitForChild("Humanoid")
+    pcall(function()
+        local character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+        local humanoid = character:WaitForChild("Humanoid")
 
-    local anim = Instance.new("Animation")
-    anim.AnimationId = animId
-    local track = humanoid:LoadAnimation(anim)
-    track:Play()
-    print("Playing animation:", animId)
+        local anim = Instance.new("Animation")
+        anim.AnimationId = animId
+        local track = humanoid:LoadAnimation(anim)
+        track:Play()
+        print("Playing animation:", animId)
 
-    -- Stop when the player starts moving
-    local connection
-    connection = humanoid.Running:Connect(function(speed)
-        if speed > 0 then
-            track:Stop()
-            print("Animation stopped because player moved.")
-            connection:Disconnect()
-        end
+        -- Stop when the player starts moving
+        local connection
+        connection = humanoid.Running:Connect(function(speed)
+            if speed > 0 then
+                track:Stop()
+                print("Animation stopped because player moved.")
+                connection:Disconnect()
+            end
+        end)
     end)
 end
 
@@ -227,33 +237,43 @@ Tabs.ExtraTab = Tabs.ExtraSection:Tab({
     Desc = "Additional utility features"
 })
 
--- =============== WALL DETECTION SYSTEM ===============
+-- =============== IMPROVED WALL DETECTION SYSTEM ===============
 function IsPlayerVisible(targetPlayer)
-    if not LocalPlayer.Character or not targetPlayer.Character then
-        return false
-    end
-    
-    local localRoot = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-    local targetRoot = targetPlayer.Character:FindFirstChild("HumanoidRootPart")
-    
-    if not localRoot or not targetRoot then
-        return false
-    end
-    
-    -- Raycast to check for walls/obstacles
-    local origin = localRoot.Position
-    local direction = (targetRoot.Position - origin)
-    local distance = direction.Magnitude
-    direction = direction.Unit
-    
-    local raycastParams = RaycastParams.new()
-    raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
-    raycastParams.FilterDescendantsInstances = {LocalPlayer.Character, targetPlayer.Character}
-    
-    local raycastResult = workspace:Raycast(origin, direction * distance, raycastParams)
-    
-    -- If no obstacle hit, target is visible
-    return raycastResult == nil
+    local isVisible = false
+    pcall(function()
+        if not LocalPlayer.Character or not targetPlayer.Character then
+            return false
+        end
+        
+        local localRoot = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+        local targetRoot = targetPlayer.Character:FindFirstChild("HumanoidRootPart")
+        
+        if not localRoot or not targetRoot then
+            return false
+        end
+        
+        -- First check if target is on screen
+        local screenPos, onScreen = Camera:WorldToViewportPoint(targetRoot.Position)
+        if not onScreen or screenPos.Z <= 0 then
+            return false
+        end
+        
+        -- Raycast to check for walls/obstacles
+        local origin = localRoot.Position
+        local direction = (targetRoot.Position - origin)
+        local distance = direction.Magnitude
+        direction = direction.Unit
+        
+        local raycastParams = RaycastParams.new()
+        raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
+        raycastParams.FilterDescendantsInstances = {LocalPlayer.Character, targetPlayer.Character}
+        
+        local raycastResult = workspace:Raycast(origin, direction * distance, raycastParams)
+        
+        -- If no obstacle hit, target is visible
+        isVisible = raycastResult == nil
+    end)
+    return isVisible
 end
 
 -- =============== NEW: EZWIN FUNCTIONS ===============
@@ -284,17 +304,19 @@ function PerformKillOnPlayer(targetPlayer)
         if not targetPlayer or not targetPlayer.Character then return end
         
         -- AUTO-EQUIP WEAPON BEFORE KILL
-        local backpack = LocalPlayer:WaitForChild("Backpack")
-        local humanoid = LocalPlayer.Character:WaitForChild("Humanoid")
-        
-        -- Grab the 2nd item in the Backpack
-        local items = backpack:GetChildren()
-        local secondItem = items[2]
-        
-        if secondItem then
-            humanoid:EquipTool(secondItem)
-        else
-            warn("No second item found in inventory!")
+        if LocalPlayer:WaitForChild("Backpack", 1) and LocalPlayer.Character then
+            local backpack = LocalPlayer.Backpack
+            local humanoid = LocalPlayer.Character:FindFirstChild("Humanoid")
+            
+            if humanoid then
+                -- Grab the 2nd item in the Backpack
+                local items = backpack:GetChildren()
+                local secondItem = items[2]
+                
+                if secondItem then
+                    humanoid:EquipTool(secondItem)
+                end
+            end
         end
         
         local leftUpperArm = targetPlayer.Character:FindFirstChild("LeftUpperArm")
@@ -331,15 +353,19 @@ function LoopAutoKill()
             end
             
             -- AUTO-EQUIP WEAPON BEFORE LOOP KILL
-            local backpack = LocalPlayer:WaitForChild("Backpack")
-            local humanoid = LocalPlayer.Character:WaitForChild("Humanoid")
-            
-            -- Grab the 2nd item in the Backpack
-            local items = backpack:GetChildren()
-            local secondItem = items[2]
-            
-            if secondItem then
-                humanoid:EquipTool(secondItem)
+            if LocalPlayer:WaitForChild("Backpack", 1) and LocalPlayer.Character then
+                local backpack = LocalPlayer.Backpack
+                local humanoid = LocalPlayer.Character:FindFirstChild("Humanoid")
+                
+                if humanoid then
+                    -- Grab the 2nd item in the Backpack
+                    local items = backpack:GetChildren()
+                    local secondItem = items[2]
+                    
+                    if secondItem then
+                        humanoid:EquipTool(secondItem)
+                    end
+                end
             end
             
             local enemies = GetEnemyPlayers()
@@ -366,24 +392,28 @@ end
 function KillAllEnemies()
     pcall(function()
         -- AUTO-EQUIP WEAPON BEFORE KILL ALL
-        local backpack = LocalPlayer:WaitForChild("Backpack")
-        local humanoid = LocalPlayer.Character:WaitForChild("Humanoid")
-        
-        -- Grab the 2nd item in the Backpack
-        local items = backpack:GetChildren()
-        local secondItem = items[2]
-        
-        if secondItem then
-            humanoid:EquipTool(secondItem)
-        else
-            warn("No second item found in inventory!")
-            WindUI:Notify({
-                Title = "No Weapon Found",
-                Content = "No second item found in inventory! Cannot execute kill all.",
-                Icon = "alert-triangle",
-                Duration = 3,
-            })
-            return -- Don't proceed if no weapon
+        if LocalPlayer:WaitForChild("Backpack", 1) and LocalPlayer.Character then
+            local backpack = LocalPlayer.Backpack
+            local humanoid = LocalPlayer.Character:FindFirstChild("Humanoid")
+            
+            if humanoid then
+                -- Grab the 2nd item in the Backpack
+                local items = backpack:GetChildren()
+                local secondItem = items[2]
+                
+                if secondItem then
+                    humanoid:EquipTool(secondItem)
+                else
+                    warn("No second item found in inventory!")
+                    WindUI:Notify({
+                        Title = "No Weapon Found",
+                        Content = "No second item found in inventory! Cannot execute kill all.",
+                        Icon = "alert-triangle",
+                        Duration = 3,
+                    })
+                    return -- Don't proceed if no weapon
+                end
+            end
         end
         
         local enemies = GetEnemyPlayers()
@@ -405,24 +435,31 @@ function KillAllEnemies()
     end)
 end
 
--- NEW: Auto Shoot Function with Wall Detection (SINGLE SHOT)
+-- FIXED: Auto Shoot Function with Proper Target Position
 function AutoShootAtTarget(targetPlayer)
     pcall(function()
         if not targetPlayer or not targetPlayer.Character then return end
         
+        local targetRoot = targetPlayer.Character:FindFirstChild("HumanoidRootPart")
+        if not targetRoot then return end
+        
         -- AUTO-EQUIP WEAPON BEFORE SHOOT
-        local backpack = LocalPlayer:WaitForChild("Backpack")
-        local humanoid = LocalPlayer.Character:WaitForChild("Humanoid")
-        
-        -- Grab the 2nd item in the Backpack
-        local items = backpack:GetChildren()
-        local secondItem = items[2]
-        
-        if secondItem then
-            humanoid:EquipTool(secondItem)
-        else
-            warn("No second item found in inventory!")
-            return
+        if LocalPlayer:WaitForChild("Backpack", 1) and LocalPlayer.Character then
+            local backpack = LocalPlayer.Backpack
+            local humanoid = LocalPlayer.Character:FindFirstChild("Humanoid")
+            
+            if humanoid then
+                -- Grab the 2nd item in the Backpack
+                local items = backpack:GetChildren()
+                local secondItem = items[2]
+                
+                if secondItem then
+                    humanoid:EquipTool(secondItem)
+                else
+                    warn("No second item found in inventory!")
+                    return
+                end
+            end
         end
         
         local leftUpperArm = targetPlayer.Character:FindFirstChild("LeftUpperArm")
@@ -432,22 +469,26 @@ function AutoShootAtTarget(targetPlayer)
         if shootGunRemote then
             shootGunRemote = shootGunRemote:FindFirstChild("ShootGun")
             if shootGunRemote then
+                -- Use the actual target player's position instead of hardcoded values
+                local targetPosition = targetRoot.Position
+                local shootDirection = targetPosition + Vector3.new(0, 2, 0) -- Aim slightly higher
+                
                 local args = {
-                    Vector3.new(-174.95948791503906, 165.3748779296875, -1.7110586166381836),
-                    Vector3.new(-176.19561767578125, 144.7963409423828, 51.71797180175781),
-                    leftUpperArm:FindFirstChild("Part"),
-                    Vector3.new(-175.43002319335938, 166.70974731445312, 6.782278537750244)
+                    LocalPlayer.Character.HumanoidRootPart.Position, -- Shooting from local player
+                    shootDirection, -- Direction to target
+                    leftUpperArm:FindFirstChild("Part"), -- Target part
+                    targetPosition -- Target position
                 }
                 
                 shootGunRemote:FireServer(unpack(args))
-                print("Auto Shot: " .. targetPlayer.Name .. " - Target eliminated!")
+                print("Auto Shot: " .. targetPlayer.Name .. " at position " .. tostring(targetPosition))
                 
                 -- Mark this target as shot to prevent spam
                 ShotTargets[targetPlayer] = true
                 
-                -- Clear the shot marker after 3 seconds
+                -- Clear the shot marker after 2 seconds
                 task.spawn(function()
-                    task.wait(3)
+                    task.wait(2)
                     ShotTargets[targetPlayer] = nil
                 end)
             end
@@ -467,10 +508,11 @@ function AutoShootLoop()
             
             local enemies = GetEnemyPlayers()
             for _, enemy in ipairs(enemies) do
-                -- Only shoot if we haven't shot this target recently
+                -- Only shoot if we haven't shot this target recently and they are visible
                 if not ShotTargets[enemy] and IsPlayerVisible(enemy) then
                     AutoShootAtTarget(enemy)
                     task.wait(0.1) -- Small delay between shots
+                    break -- Only shoot one target per frame to prevent lag
                 end
             end
         end)
@@ -518,7 +560,7 @@ Tabs.EzWinTab:Toggle({
 
 Tabs.EzWinTab:Button({
     Title = "Kill All",
-    Desc = "Execute kill on all enemy players once ",
+    Desc = "Execute kill on all enemy players once",
     Icon = "zap",
     Callback = function()
         KillAllEnemies()
@@ -529,7 +571,7 @@ Tabs.EzWinTab:Section({ Title = "Information" })
 
 Tabs.EzWinTab:Paragraph({
     Title = "EzWin Features",
-    Desc = "⚠️ you better win lol!\n• Loop Auto Kill: Continuously targets enemies \n• Kill All: One-time execution on all enemies \n• Auto Shoot: Wall detection system for visible enemies\n• Automatic team checking included",
+    Desc = "⚠️ you better win lol!\n• Only problem is that players might not able to be shot/killed so becareful as you might lose your streak or something these EzWin features are still Beta!",
     Color = "Red",
     Image = "alert-triangle"
 })
@@ -546,6 +588,34 @@ function ResetHitboxes()
                     root.Color = Color3.fromRGB(255, 255, 255)
                     root.Material = Enum.Material.Plastic
                     root.CanCollide = true
+                end
+            end
+        end
+    end)
+end
+
+function UpdateHitboxes()
+    pcall(function()
+        if not IsEnabled then return end
+        
+        for _, player in ipairs(Players:GetPlayers()) do
+            if player ~= LocalPlayer and player.Character then
+                local root = player.Character:FindFirstChild("HumanoidRootPart")
+                if root then
+                    if HitboxTeamCheck and LocalPlayer.Team and player.Team == LocalPlayer.Team then
+                        -- Skip teammates if team check is enabled
+                        root.Size = Vector3.new(2, 2, 1)
+                        root.Transparency = 0
+                        root.Color = Color3.fromRGB(255, 255, 255)
+                        root.Material = Enum.Material.Plastic
+                        root.CanCollide = true
+                    else
+                        root.Size = Vector3.new(HeadSize, HeadSize, HeadSize)
+                        root.Transparency = Transparency / 100
+                        root.Color = HitboxColor
+                        root.Material = Enum.Material.Neon
+                        root.CanCollide = false
+                    end
                 end
             end
         end
@@ -574,7 +644,7 @@ Tabs.HitboxTab:Slider({
     Value = {
         Min = 1,
         Max = 50,
-        Default = HeadSize,
+        Default = 20,
     },
     Callback = function(val) 
         HeadSize = val 
@@ -583,14 +653,14 @@ Tabs.HitboxTab:Slider({
 
 Tabs.HitboxTab:Slider({
     Title = "Transparency",
-    Desc = "Transparency of the hitbox visualization",
+    Desc = "Transparency of the hitbox visualization (percentage)",
     Value = {
         Min = 0,
         Max = 100,
-        Default = Transparency * 100,
+        Default = 70,
     },
     Callback = function(val) 
-        Transparency = val / 100 
+        Transparency = val
     end
 })
 
@@ -613,44 +683,38 @@ Tabs.HitboxTab:Colorpicker({
     end
 })
 
--- =============== AIM TAB ===============
+-- =============== AIM TAB (UPDATED) ===============
 Tabs.AimTab:Section({ Title = "Aimbot Settings" })
 
 Tabs.AimTab:Toggle({
     Title = "Silent Aim",
-    Desc = "Enable smooth mouse cursor movement to targets",
+    Desc = "Enable toggle-based aimbot - Right click to toggle tracking on/off",
     Icon = "crosshair",
     Value = false,
     Callback = function(val) 
         SoftAimEnabled = val 
+        if not val then
+            SoftAimToggled = false -- Reset toggle when disabled
+            WindUI:Notify({
+                Title = "Silent Aim Disabled",
+                Content = "Aimbot system turned off",
+                Icon = "square",
+                Duration = 2,
+            })
+        end
     end
 })
 
 Tabs.AimTab:Slider({
     Title = "Smoothness",
-    Desc = "How smooth the cursor movement is",
-    Step = 0.05,
+    Desc = "How smooth the cursor movement is (percentage)",
     Value = {
-        Min = 0.05,
-        Max = 1,
-        Default = Smoothness,
+        Min = 5,
+        Max = 100,
+        Default = 15,
     },
     Callback = function(val) 
-        Smoothness = val 
-    end
-})
-
-Tabs.AimTab:Slider({
-    Title = "Max Distance",
-    Desc = "Maximum distance to target players",
-    Value = {
-        Min = 100,
-        Max = 2000,
-        Default = SoftAimRange,
-    },
-    Step = 50,
-    Callback = function(val) 
-        SoftAimRange = val 
+        Smoothness = val
     end
 })
 
@@ -665,8 +729,8 @@ Tabs.AimTab:Toggle({
 })
 
 Tabs.AimTab:Keybind({
-    Title = "Aim Key",
-    Desc = "Key to hold for Silent Aim",
+    Title = "Toggle Key",
+    Desc = "Key to toggle Silent Aim tracking on/off",
     Value = "RightMouseButton",
     Callback = function(v)
         if v == "RightMouseButton" then
@@ -675,6 +739,8 @@ Tabs.AimTab:Keybind({
             SoftAimKey = Enum.KeyCode.LeftAlt
         elseif v == "LeftControl" then
             SoftAimKey = Enum.KeyCode.LeftControl
+        elseif v == "F" then
+            SoftAimKey = Enum.KeyCode.F
         end
     end
 })
@@ -708,19 +774,20 @@ Tabs.AimTab:Toggle({
     end
 })
 
--- Clearing Functions
+-- =============== FIXED ESP FUNCTIONS ===============
+
+-- Clear Functions
 function ClearSkeletonESP(player)
     pcall(function()
-        if player then
-            if SkeletonESP[player] then
-                for _, connection in ipairs(SkeletonESP[player]) do
-                    if connection.line then
-                        connection.line:Remove()
-                    end
+        if player and SkeletonESP[player] then
+            for _, connection in ipairs(SkeletonESP[player]) do
+                if connection.line then
+                    connection.line:Remove()
                 end
-                SkeletonESP[player] = nil
             end
-        else
+            SkeletonESP[player] = nil
+        elseif not player then
+            -- Clear all
             for _, connections in pairs(SkeletonESP) do
                 for _, connection in ipairs(connections) do
                     if connection.line then
@@ -733,38 +800,15 @@ function ClearSkeletonESP(player)
     end)
 end
 
--- =============== ESP TAB ===============
-Tabs.ESPTab:Section({ Title = "ESP Features" })
-
-Tabs.ESPTab:Toggle({
-    Title = "Skeleton ESP",
-    Desc = "Show player skeleton outlines",
-    Icon = "user",
-    Value = false,
-    Callback = function(val) 
-        SkeletonESPEnabled = val 
-        if not val then 
-            -- Force clear all skeleton ESP
-            for player, connections in pairs(SkeletonESP) do
-                for _, connection in ipairs(connections) do
-                    if connection.line then
-                        connection.line:Remove()
-                    end
-                end
-            end
-            SkeletonESP = {}
-        end
-    end
-})
-
 function ClearHeadESP(player)
     pcall(function()
-        if player then
-            if HeadESP[player] and HeadESP[player].dot then
+        if player and HeadESP[player] then
+            if HeadESP[player].dot then
                 HeadESP[player].dot:Remove()
             end
             HeadESP[player] = nil
-        else
+        elseif not player then
+            -- Clear all
             for _, data in pairs(HeadESP) do
                 if data.dot then
                     data.dot:Remove()
@@ -775,27 +819,15 @@ function ClearHeadESP(player)
     end)
 end
 
-Tabs.ESPTab:Toggle({
-    Title = "Head ESP",
-    Desc = "Show dots on player heads",
-    Icon = "circle",
-    Value = false,
-    Callback = function(val) 
-        HeadESPEnabled = val 
-        if not val then 
-            ClearHeadESP() 
-        end
-    end
-})
-
 function ClearBoxESP(player)
     pcall(function()
-        if player then
-            if BoxESP[player] and BoxESP[player].box then
+        if player and BoxESP[player] then
+            if BoxESP[player].box then
                 BoxESP[player].box:Remove()
             end
             BoxESP[player] = nil
-        else
+        elseif not player then
+            -- Clear all
             for _, data in pairs(BoxESP) do
                 if data.box then
                     data.box:Remove()
@@ -806,31 +838,17 @@ function ClearBoxESP(player)
     end)
 end
 
-Tabs.ESPTab:Toggle({
-    Title = "Box ESP",
-    Desc = "Show boxes around players",
-    Icon = "square",
-    Value = false,
-    Callback = function(val) 
-        BoxESPEnabled = val 
-        if not val then 
-            ClearBoxESP() 
-        end
-    end
-})
-
 function ClearCharmsESP(player)
     pcall(function()
-        if player then
-            if CharmsESP[player] then
-                for _, highlight in ipairs(CharmsESP[player]) do
-                    if highlight then
-                        highlight:Destroy()
-                    end
+        if player and CharmsESP[player] then
+            for _, highlight in ipairs(CharmsESP[player]) do
+                if highlight then
+                    highlight:Destroy()
                 end
-                CharmsESP[player] = nil
             end
-        else
+            CharmsESP[player] = nil
+        elseif not player then
+            -- Clear all
             for _, highlights in pairs(CharmsESP) do
                 for _, highlight in ipairs(highlights) do
                     if highlight then
@@ -843,339 +861,7 @@ function ClearCharmsESP(player)
     end)
 end
 
-Tabs.ESPTab:Toggle({
-    Title = "Chams ESP",
-    Desc = "Highlight entire player models",
-    Icon = "sparkles",
-    Value = false,
-    Callback = function(val) 
-        CharmsESPEnabled = val 
-        if not val then 
-            ClearCharmsESP() 
-        end
-    end
-})
-
-Tabs.ESPTab:Toggle({
-    Title = "Team Check",
-    Desc = "Don't show ESP on teammates",
-    Icon = "users",
-    Value = false,
-    Callback = function(val) 
-        ESPTeamCheck = val 
-        -- Force refresh ESP when team check changes
-        if val then
-            -- Clear ESP for teammates
-            for _, player in ipairs(Players:GetPlayers()) do
-                if player ~= LocalPlayer and LocalPlayer.Team and player.Team == LocalPlayer.Team then
-                    ClearSkeletonESP(player)
-                    ClearHeadESP(player)
-                    ClearBoxESP(player)
-                    ClearCharmsESP(player)
-                end
-            end
-        end
-    end
-})
-
-Tabs.ESPTab:Colorpicker({
-    Title = "ESP Color",
-    Desc = "Color of all ESP elements",
-    Default = ESPColor,
-    Callback = function(color) 
-        ESPColor = color 
-        UpdateAllESPColors()
-    end
-})
-
--- =============== COOLDOWN TAB (Coming Soon) ===============
-Tabs.CooldownTab:Section({ Title = "Weapon Cooldowns" })
-
-Tabs.CooldownTab:Paragraph({
-    Title = "Coming Soon!",
-    Desc = "Cooldown bypass features are currently in development.",
-    Color = "Orange",
-    Image = "clock"
-})
-
--- =============== EMOTES TAB (NEW) ===============
-Tabs.EmotesTab:Section({ Title = "Animation Controls" })
-
-Tabs.EmotesTab:Paragraph({
-    Title = "Emote Instructions",
-    Desc = "Click emote and get free emote simple as that ngl",
-    Color = "Blue",
-    Image = "info"
-})
-
-Tabs.EmotesTab:Button({
-    Title = "Rocky Step",
-    Desc = "Play the Rocky Step emote animation",
-    Callback = function()
-        pcall(function()
-            playAnimationUntilMove("rbxassetid://17493148164") -- rock step emote
-            WindUI:Notify({
-                Title = "Animation Started",
-                Content = "Playing Rocky Step emote! Move to stop.",
-                Icon = "music",
-                Duration = 3,
-            })
-        end)
-    end
-})
-
-Tabs.EmotesTab:Button({
-    Title = "Zombie Walk",
-    Desc = "Play the Zombie Walk animation",
-    Callback = function()
-        pcall(function()
-            playAnimationUntilMove("rbxassetid://130586820736295") -- Zombie Walk
-            WindUI:Notify({
-                Title = "Animation Started",
-                Content = "Playing Zombie Walk! Move to stop.",
-                Icon = "music",
-                Duration = 3,
-            })
-        end)
-    end
-})
-
-Tabs.EmotesTab:Button({
-    Title = "Russian Kicks",
-    Desc = "Play the Russian Kicks dance animation",
-    Callback = function()
-        pcall(function()
-            playAnimationUntilMove("rbxassetid://17467252077") -- Russian Kicks
-            WindUI:Notify({
-                Title = "Animation Started",
-                Content = "Playing Russian Kicks! Move to stop.",
-                Icon = "music",
-                Duration = 3,
-            })
-        end)
-    end
-})
-
-function DisableFlight()
-    pcall(function()
-        if LocalPlayer.Character then
-            local humanoid = LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
-            if humanoid then
-                humanoid.PlatformStand = false
-            end
-            
-            local root = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-            if root then
-                for _, v in ipairs(root:GetChildren()) do
-                    if v:IsA("BodyVelocity") then
-                        v:Destroy()
-                    end
-                end
-            end
-        end
-        
-        if FlightBodyVelocity then
-            FlightBodyVelocity:Destroy()
-            FlightBodyVelocity = nil
-        end
-        
-        for _, conn in ipairs(FlightConnections) do
-            if conn and conn.Connected then
-                conn:Disconnect()
-            end
-        end
-        FlightConnections = {}
-    end)
-end
-
--- =============== EXTRA TAB ===============
-Tabs.ExtraTab:Section({ Title = "Movement" })
-
-Tabs.ExtraTab:Toggle({
-    Title = "Flight (Ass)",
-    Desc = "Im working on it :(",
-    Icon = "plane",
-    Value = false,
-    Callback = function(val) 
-        FlightEnabled = val
-        if FlightEnabled then
-            EnableFlight()
-        else
-            DisableFlight()
-        end
-    end
-})
-
-Tabs.ExtraTab:Slider({
-    Title = "Flight Speed",
-    Desc = "Speed of flight movement",
-    Value = {
-        Min = 10,
-        Max = 200,
-        Default = FlightSpeed,
-    },
-    Step = 5,
-    Callback = function(val) 
-        FlightSpeed = val 
-    end
-})
-
-Tabs.ExtraTab:Section({ Title = "Information" })
-
-Tabs.ExtraTab:Paragraph({
-    Title = "Script Info",
-    Desc = "Ez Win v2.1 Enhanced\nConverted to WindUI with new features\nPress F4 to toggle UI",
-    Color = "Blue",
-    Image = "info"
-})
-
--- Select first tab by default
-Window:SelectTab(1)
-
--- =============== ENHANCED FLIGHT SYSTEM ===============
-function EnableFlight()
-    pcall(function()
-        if not LocalPlayer.Character then return end
-        
-        local humanoid = LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
-        if not humanoid then return end
-        
-        humanoid.PlatformStand = true
-        
-        local root = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-        if not root then return end
-        
-        -- Clean up any existing BodyVelocity
-        if FlightBodyVelocity then
-            FlightBodyVelocity:Destroy()
-        end
-        
-        FlightBodyVelocity = Instance.new("BodyVelocity")
-        FlightBodyVelocity.Velocity = Vector3.new(0, 0, 0)
-        FlightBodyVelocity.MaxForce = Vector3.new(1e5, 1e5, 1e5)
-        FlightBodyVelocity.Parent = root
-        
-        local flyConnection
-        flyConnection = RunService.Heartbeat:Connect(function()
-            pcall(function()
-                if not FlightEnabled or not LocalPlayer.Character or not root.Parent or not FlightBodyVelocity then
-                    if FlightBodyVelocity then
-                        FlightBodyVelocity:Destroy()
-                        FlightBodyVelocity = nil
-                    end
-                    if flyConnection then flyConnection:Disconnect() end
-                    if humanoid then humanoid.PlatformStand = false end
-                    return
-                end
-                
-                local camCF = Camera.CFrame
-                local moveVec = Vector3.new()
-                
-                if UserInputService:IsKeyDown(Enum.KeyCode.W) then
-                    moveVec = moveVec + camCF.LookVector
-                end
-                if UserInputService:IsKeyDown(Enum.KeyCode.S) then
-                    moveVec = moveVec - camCF.LookVector
-                end
-                if UserInputService:IsKeyDown(Enum.KeyCode.D) then
-                    moveVec = moveVec + camCF.RightVector
-                end
-                if UserInputService:IsKeyDown(Enum.KeyCode.A) then
-                    moveVec = moveVec - camCF.RightVector
-                end
-                if UserInputService:IsKeyDown(Enum.KeyCode.Space) then
-                    moveVec = moveVec + Vector3.new(0, 1, 0)
-                end
-                if UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) then
-                    moveVec = moveVec - Vector3.new(0, 1, 0)
-                end
-                
-                if moveVec.Magnitude > 0 then
-                    FlightBodyVelocity.Velocity = moveVec.Unit * FlightSpeed
-                else
-                    FlightBodyVelocity.Velocity = Vector3.new(0, 0, 0)
-                end
-            end)
-        end)
-        
-        table.insert(FlightConnections, flyConnection)
-    end)
-end
-
--- =============== ENHANCED HITBOX LOGIC ===============
-function UpdateHitboxes()
-    pcall(function()
-        if not IsEnabled then return end
-        
-        for _, player in ipairs(Players:GetPlayers()) do
-            if player ~= LocalPlayer and player.Character then
-                local root = player.Character:FindFirstChild("HumanoidRootPart")
-                if root then
-                    if HitboxTeamCheck and player.Team == LocalPlayer.Team then
-                        -- Skip teammates if team check is enabled
-                        root.Size = Vector3.new(2, 2, 1)
-                        root.Transparency = 0
-                        root.Color = Color3.fromRGB(255, 255, 255)
-                        root.Material = Enum.Material.Plastic
-                        root.CanCollide = true
-                    else
-                        root.Size = Vector3.new(HeadSize, HeadSize, HeadSize)
-                        root.Transparency = Transparency
-                        root.Color = HitboxColor
-                        root.Material = Enum.Material.Neon
-                        root.CanCollide = false
-                    end
-                end
-            end
-        end
-    end)
-end
-
--- =============== FIXED: MOUSE CURSOR AIM (NOT CAMERA) ===============
-function GetClosestTarget()
-    local shortest = math.huge
-    local closest = nil
-    local closestPos = nil
-    
-    pcall(function()
-        if not LocalPlayer.Character then return end
-        
-        for _, player in ipairs(Players:GetPlayers()) do
-            if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-                local humanoid = player.Character:FindFirstChildOfClass("Humanoid")
-                if humanoid and humanoid.Health > 0 then
-                    local pos = player.Character.HumanoidRootPart.Position
-                    local distance = (pos - LocalPlayer.Character.HumanoidRootPart.Position).Magnitude
-                    
-                    if distance <= SoftAimRange then
-                        if not (SoftAimTeamCheck and player.Team == LocalPlayer.Team) then
-                            local screenPos, visible = Camera:WorldToViewportPoint(pos)
-                            if visible then
-                                local mouse = UserInputService:GetMouseLocation()
-                                local dist = (Vector2.new(screenPos.X, screenPos.Y) - Vector2.new(mouse.X, mouse.Y)).Magnitude
-                                if dist < shortest then
-                                    shortest = dist
-                                    closest = player
-                                    closestPos = screenPos
-                                end
-                            end
-                        end
-                    end
-                end
-            end
-        end
-    end)
-    
-    return closest, closestPos
-end
-
--- =============== ESP SYSTEMS ===============
-local SkeletonESP = {}
-local HeadESP = {}
-local BoxESP = {}
-local CharmsESP = {}  -- NEW: Charms ESP storage
-
--- Enhanced Skeleton ESP
+-- Create Functions
 function CreateSkeletonESP(player)
     pcall(function()
         if SkeletonESP[player] then return end
@@ -1242,7 +928,6 @@ function CreateSkeletonESP(player)
     end)
 end
 
--- FIXED: Charms ESP - Full Model Highlight
 function CreateCharmsESP(player)
     pcall(function()
         if CharmsESP[player] then return end
@@ -1262,35 +947,6 @@ function CreateCharmsESP(player)
     end)
 end
 
-function UpdateSkeletonESP()
-    pcall(function()
-        for player, connections in pairs(SkeletonESP) do
-            if not player or not player.Character or player.Character.Parent == nil then
-                ClearSkeletonESP(player)
-            else
-                for _, connection in ipairs(connections) do
-                    if connection.part1 and connection.part2 and connection.part1.Parent and connection.part2.Parent then
-                        local pos1 = Camera:WorldToViewportPoint(connection.part1.Position)
-                        local pos2 = Camera:WorldToViewportPoint(connection.part2.Position)
-                        
-                        if pos1.Z > 0 and pos2.Z > 0 then
-                            connection.line.From = Vector2.new(pos1.X, pos1.Y)
-                            connection.line.To = Vector2.new(pos2.X, pos2.Y)
-                            connection.line.Visible = true
-                            connection.line.Color = ESPColor
-                        else
-                            connection.line.Visible = false
-                        end
-                    else
-                        connection.line.Visible = false
-                    end
-                end
-            end
-        end
-    end)
-end
-
--- Head ESP
 function CreateHeadESP(player)
     pcall(function()
         if HeadESP[player] then return end
@@ -1316,30 +972,6 @@ function CreateHeadESP(player)
     end)
 end
 
-function UpdateHeadESP()
-    pcall(function()
-        for player, data in pairs(HeadESP) do
-            if not player or not player.Character or player.Character.Parent == nil then
-                ClearHeadESP(player)
-            else
-                if data.head and data.head.Parent then
-                    local pos = Camera:WorldToViewportPoint(data.head.Position)
-                    if pos.Z > 0 then
-                        data.dot.Position = Vector2.new(pos.X, pos.Y)
-                        data.dot.Visible = true
-                        data.dot.Color = ESPColor
-                    else
-                        data.dot.Visible = false
-                    end
-                else
-                    data.dot.Visible = false
-                end
-            end
-        end
-    end)
-end
-
--- Box ESP
 function CreateBoxESP(player)
     pcall(function()
         if BoxESP[player] then return end
@@ -1364,56 +996,167 @@ function CreateBoxESP(player)
     end)
 end
 
-function UpdateBoxESP()
+-- Update Functions
+function UpdateSkeletonESP()
     pcall(function()
-        for player, data in pairs(BoxESP) do
+        for player, connections in pairs(SkeletonESP) do
             if not player or not player.Character or player.Character.Parent == nil then
-                ClearBoxESP(player)
+                ClearSkeletonESP(player)
             else
-                if data.root and data.root.Parent then
-                    local cf = data.root.CFrame
-                    local size = Vector3.new(3, 5, 0)
-                    
-                    local points = {
-                        Vector3.new(-size.X, -size.Y, 0),
-                        Vector3.new(size.X, -size.Y, 0),
-                        Vector3.new(size.X, size.Y, 0),
-                        Vector3.new(-size.X, size.Y, 0)
-                    }
-                    
-                    local points2D = {}
-                    local allVisible = true
-                    
-                    for i, point in ipairs(points) do
-                        local worldPoint = cf:PointToWorldSpace(point)
-                        local screenPoint = Camera:WorldToViewportPoint(worldPoint)
-                        if screenPoint.Z > 0 then
-                            points2D[i] = Vector2.new(screenPoint.X, screenPoint.Y)
-                        else
-                            allVisible = false
-                            break
+                -- Check if player is in field of view first
+                local root = player.Character:FindFirstChild("HumanoidRootPart")
+                if not root then
+                    -- Hide all lines if no root part
+                    for _, connection in ipairs(connections) do
+                        if connection.line then
+                            connection.line.Visible = false
                         end
                     end
-                    
-                    if allVisible and #points2D == 4 then
-                        data.box.PointA = points2D[1]
-                        data.box.PointB = points2D[2]
-                        data.box.PointC = points2D[3]
-                        data.box.PointD = points2D[4]
-                        data.box.Visible = true
-                        data.box.Color = ESPColor
-                    else
-                        data.box.Visible = false
-                    end
                 else
-                    data.box.Visible = false
+                    local rootPos, rootOnScreen = Camera:WorldToViewportPoint(root.Position)
+                    local isPlayerVisible = rootOnScreen and rootPos.Z > 0
+                    
+                    if not isPlayerVisible then
+                        -- Hide all lines if player is out of view
+                        for _, connection in ipairs(connections) do
+                            if connection.line then
+                                connection.line.Visible = false
+                            end
+                        end
+                    else
+                        -- Update individual bone connections
+                        for _, connection in ipairs(connections) do
+                            if connection.part1 and connection.part2 and connection.part1.Parent and connection.part2.Parent then
+                                local pos1, onScreen1 = Camera:WorldToViewportPoint(connection.part1.Position)
+                                local pos2, onScreen2 = Camera:WorldToViewportPoint(connection.part2.Position)
+                                
+                                -- Only show line if both points are visible and in front of camera
+                                if onScreen1 and onScreen2 and pos1.Z > 0 and pos2.Z > 0 then
+                                    connection.line.From = Vector2.new(pos1.X, pos1.Y)
+                                    connection.line.To = Vector2.new(pos2.X, pos2.Y)
+                                    connection.line.Visible = true
+                                    connection.line.Color = ESPColor
+                                else
+                                    connection.line.Visible = false
+                                end
+                            else
+                                connection.line.Visible = false
+                            end
+                        end
+                    end
                 end
             end
         end
     end)
 end
 
--- FIXED: ESP Management with proper clearing
+function UpdateHeadESP()
+    pcall(function()
+        for player, data in pairs(HeadESP) do
+            if not player or not player.Character or player.Character.Parent == nil then
+                ClearHeadESP(player)
+            else
+                if data.head and data.head.Parent then
+                    local pos, onScreen = Camera:WorldToViewportPoint(data.head.Position)
+                    -- Check if position is in front of camera and on screen
+                    if onScreen and pos.Z > 0 and pos.X >= 0 and pos.Y >= 0 and pos.X <= Camera.ViewportSize.X and pos.Y <= Camera.ViewportSize.Y then
+                        data.dot.Position = Vector2.new(pos.X, pos.Y)
+                        data.dot.Visible = true
+                        data.dot.Color = ESPColor
+                    else
+                        data.dot.Visible = false
+                    end
+                else
+                    data.dot.Visible = false
+                end
+            end
+        end
+    end)
+end
+
+function UpdateBoxESP()
+    pcall(function()
+        for player, data in pairs(BoxESP) do
+            -- invalid player / character -> remove and cleanup
+            if not player or not player.Character or player.Character.Parent == nil then
+                if data and data.box then
+                    pcall(function() data.box:Remove() end)
+                end
+                BoxESP[player] = nil
+            else
+                -- ensure root exists
+                if not data.root or not data.root.Parent then
+                    if data and data.box then
+                        pcall(function() data.box:Remove() end)
+                    end
+                    BoxESP[player] = nil
+                else
+                    -- choose head for detection, fallback to root
+                    local head = player.Character:FindFirstChild("Head")
+                    local checkPosition = head and head.Position or data.root.Position
+
+                    local screenPos, onScreen = Camera:WorldToViewportPoint(checkPosition)
+                    local inView = onScreen and screenPos.Z > 0 and
+                                   screenPos.X >= 0 and screenPos.X <= Camera.ViewportSize.X and
+                                   screenPos.Y >= 0 and screenPos.Y <= Camera.ViewportSize.Y
+
+                    -- if the player center/head isn't clearly inside the viewport, remove the quad (prevents stuck visuals)
+                    if not inView then
+                        if data and data.box then
+                            pcall(function() data.box:Remove() end)
+                        end
+                        BoxESP[player] = nil
+                    else
+                        -- player is in view – compute the 4 quad corners relative to the root
+                        local cf = data.root.CFrame
+                        local size = Vector3.new(3, 5, 0) -- tune to fit your character
+                        local points = {
+                            Vector3.new(-size.X, -size.Y, 0),
+                            Vector3.new(size.X, -size.Y, 0),
+                            Vector3.new(size.X, size.Y, 0),
+                            Vector3.new(-size.X, size.Y, 0)
+                        }
+
+                        local points2D = {}
+                        local allPointsValid = true
+
+                        for i, point in ipairs(points) do
+                            local worldPoint = cf:PointToWorldSpace(point)
+                            local sp, pointVisible = Camera:WorldToViewportPoint(worldPoint)
+
+                            if pointVisible and sp.Z > 0 then
+                                points2D[i] = Vector2.new(sp.X, sp.Y)
+                            else
+                                allPointsValid = false
+                                break
+                            end
+                        end
+
+                        if allPointsValid and #points2D == 4 then
+                            -- write coordinates to quad and show it
+                            data.box.PointA = points2D[1]
+                            data.box.PointB = points2D[2]
+                            data.box.PointC = points2D[3]
+                            data.box.PointD = points2D[4]
+                            data.box.Visible = true
+                            data.box.Color = ESPColor
+                        else
+                            -- If corners aren't valid, remove the quad to avoid remnants
+                            if data and data.box then
+                                pcall(function() data.box:Remove() end)
+                            end
+                            BoxESP[player] = nil
+                        end
+                    end
+                end
+            end
+        end
+    end)
+end
+
+
+
+-- Main ESP Management
 function UpdateAllESP()
     pcall(function()
         for _, player in ipairs(Players:GetPlayers()) do
@@ -1520,6 +1263,339 @@ function UpdateAllESPColors()
     end)
 end
 
+-- =============== ESP TAB ===============
+Tabs.ESPTab:Section({ Title = "ESP Features" })
+
+Tabs.ESPTab:Toggle({
+    Title = "Skeleton ESP",
+    Desc = "Show player skeleton outlines",
+    Icon = "user",
+    Value = false,
+    Callback = function(val) 
+        SkeletonESPEnabled = val 
+        if not val then 
+            ClearSkeletonESP() -- Clear all
+        end
+    end
+})
+
+Tabs.ESPTab:Toggle({
+    Title = "Head ESP",
+    Desc = "Show dots on player heads",
+    Icon = "circle",
+    Value = false,
+    Callback = function(val) 
+        HeadESPEnabled = val 
+        if not val then 
+            ClearHeadESP() -- Clear all
+        end
+    end
+})
+
+Tabs.ESPTab:Toggle({
+    Title = "Box ESP",
+    Desc = "Show boxes around players",
+    Icon = "square",
+    Value = false,
+    Callback = function(val) 
+        BoxESPEnabled = val 
+        if not val then 
+            ClearBoxESP() -- Clear all
+        end
+    end
+})
+
+Tabs.ESPTab:Toggle({
+    Title = "Chams ESP",
+    Desc = "Highlight entire player models",
+    Icon = "sparkles",
+    Value = false,
+    Callback = function(val) 
+        CharmsESPEnabled = val 
+        if not val then 
+            ClearCharmsESP() -- Clear all
+        end
+    end
+})
+
+Tabs.ESPTab:Toggle({
+    Title = "Team Check",
+    Desc = "Don't show ESP on teammates",
+    Icon = "users",
+    Value = false,
+    Callback = function(val) 
+        ESPTeamCheck = val 
+        -- Force refresh ESP when team check changes
+        if val then
+            -- Clear ESP for teammates
+            for _, player in ipairs(Players:GetPlayers()) do
+                if player ~= LocalPlayer and LocalPlayer.Team and player.Team == LocalPlayer.Team then
+                    ClearSkeletonESP(player)
+                    ClearHeadESP(player)
+                    ClearBoxESP(player)
+                    ClearCharmsESP(player)
+                end
+            end
+        end
+    end
+})
+
+Tabs.ESPTab:Colorpicker({
+    Title = "ESP Color",
+    Desc = "Color of all ESP elements",
+    Default = ESPColor,
+    Callback = function(color) 
+        ESPColor = color 
+        UpdateAllESPColors()
+    end
+})
+
+-- =============== COOLDOWN TAB (Coming Soon) ===============
+Tabs.CooldownTab:Section({ Title = "Weapon Cooldowns" })
+
+Tabs.CooldownTab:Paragraph({
+    Title = "Coming Soon!",
+    Desc = "Cooldown bypass features are currently in development.",
+    Color = "Orange",
+    Image = "clock"
+})
+
+-- =============== EMOTES TAB (NEW) ===============
+Tabs.EmotesTab:Section({ Title = "Animation Controls" })
+
+Tabs.EmotesTab:Paragraph({
+    Title = "Emote Instructions",
+    Desc = "Click emote and get free emote simple as that ngl",
+    Color = "Blue",
+    Image = "info"
+})
+
+Tabs.EmotesTab:Button({
+    Title = "Rocky Step",
+    Desc = "Play the Rocky Step emote animation",
+    Callback = function()
+        playAnimationUntilMove("rbxassetid://17493148164") -- rock step emote
+        WindUI:Notify({
+            Title = "Animation Started",
+            Content = "Playing Rocky Step emote! Move to stop.",
+            Icon = "music",
+            Duration = 3,
+        })
+    end
+})
+
+Tabs.EmotesTab:Button({
+    Title = "Zombie Walk",
+    Desc = "Play the Zombie Walk animation",
+    Callback = function()
+        playAnimationUntilMove("rbxassetid://130586820736295") -- Zombie Walk
+        WindUI:Notify({
+            Title = "Animation Started",
+            Content = "Playing Zombie Walk! Move to stop.",
+            Icon = "music",
+            Duration = 3,
+        })
+    end
+})
+
+Tabs.EmotesTab:Button({
+    Title = "Russian Kicks",
+    Desc = "Play the Russian Kicks dance animation",
+    Callback = function()
+        playAnimationUntilMove("rbxassetid://17467252077") -- Russian Kicks
+        WindUI:Notify({
+            Title = "Animation Started",
+            Content = "Playing Russian Kicks! Move to stop.",
+            Icon = "music",
+            Duration = 3,
+        })
+    end
+})
+
+-- =============== FLIGHT SYSTEM ===============
+function EnableFlight()
+    pcall(function()
+        if not LocalPlayer.Character then return end
+        
+        local humanoid = LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+        if not humanoid then return end
+        
+        humanoid.PlatformStand = true
+        
+        local root = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+        if not root then return end
+        
+        -- Clean up any existing BodyVelocity
+        if FlightBodyVelocity then
+            FlightBodyVelocity:Destroy()
+        end
+        
+        FlightBodyVelocity = Instance.new("BodyVelocity")
+        FlightBodyVelocity.Velocity = Vector3.new(0, 0, 0)
+        FlightBodyVelocity.MaxForce = Vector3.new(1e5, 1e5, 1e5)
+        FlightBodyVelocity.Parent = root
+        
+        local flyConnection
+        flyConnection = RunService.Heartbeat:Connect(function()
+            pcall(function()
+                if not FlightEnabled or not LocalPlayer.Character or not root.Parent or not FlightBodyVelocity then
+                    if FlightBodyVelocity then
+                        FlightBodyVelocity:Destroy()
+                        FlightBodyVelocity = nil
+                    end
+                    if flyConnection then flyConnection:Disconnect() end
+                    if humanoid then humanoid.PlatformStand = false end
+                    return
+                end
+                
+                local camCF = Camera.CFrame
+                local moveVec = Vector3.new()
+                
+                if UserInputService:IsKeyDown(Enum.KeyCode.W) then
+                    moveVec = moveVec + camCF.LookVector
+                end
+                if UserInputService:IsKeyDown(Enum.KeyCode.S) then
+                    moveVec = moveVec - camCF.LookVector
+                end
+                if UserInputService:IsKeyDown(Enum.KeyCode.D) then
+                    moveVec = moveVec + camCF.RightVector
+                end
+                if UserInputService:IsKeyDown(Enum.KeyCode.A) then
+                    moveVec = moveVec - camCF.RightVector
+                end
+                if UserInputService:IsKeyDown(Enum.KeyCode.Space) then
+                    moveVec = moveVec + Vector3.new(0, 1, 0)
+                end
+                if UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) then
+                    moveVec = moveVec - Vector3.new(0, 1, 0)
+                end
+                
+                if moveVec.Magnitude > 0 then
+                    FlightBodyVelocity.Velocity = moveVec.Unit * FlightSpeed
+                else
+                    FlightBodyVelocity.Velocity = Vector3.new(0, 0, 0)
+                end
+            end)
+        end)
+        
+        table.insert(FlightConnections, flyConnection)
+    end)
+end
+
+function DisableFlight()
+    pcall(function()
+        if LocalPlayer.Character then
+            local humanoid = LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+            if humanoid then
+                humanoid.PlatformStand = false
+            end
+            
+            local root = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+            if root then
+                for _, v in ipairs(root:GetChildren()) do
+                    if v:IsA("BodyVelocity") then
+                        v:Destroy()
+                    end
+                end
+            end
+        end
+        
+        if FlightBodyVelocity then
+            FlightBodyVelocity:Destroy()
+            FlightBodyVelocity = nil
+        end
+        
+        for _, conn in ipairs(FlightConnections) do
+            if conn and conn.Connected then
+                conn:Disconnect()
+            end
+        end
+        FlightConnections = {}
+    end)
+end
+
+-- =============== EXTRA TAB ===============
+Tabs.ExtraTab:Section({ Title = "Movement" })
+
+Tabs.ExtraTab:Toggle({
+    Title = "Flight (Ass)",
+    Desc = "Im working on it :(",
+    Icon = "plane",
+    Value = false,
+    Callback = function(val) 
+        FlightEnabled = val
+        if FlightEnabled then
+            EnableFlight()
+        else
+            DisableFlight()
+        end
+    end
+})
+
+Tabs.ExtraTab:Slider({
+    Title = "Flight Speed",
+    Desc = "Speed of flight movement",
+    Value = {
+        Min = 10,
+        Max = 200,
+        Default = 50,
+    },
+    Step = 5,
+    Callback = function(val) 
+        FlightSpeed = val 
+    end
+})
+
+Tabs.ExtraTab:Section({ Title = "Information" })
+
+Tabs.ExtraTab:Paragraph({
+    Title = "Script Info",
+    Desc = "Ez Win v2.1 Enhanced\nConverted to WindUI with new features\nPress F4 to toggle UI",
+    Color = "Blue",
+    Image = "info"
+})
+
+-- =============== IMPROVED AIMBOT SYSTEM ===============
+function GetClosestTarget()
+    local shortest = math.huge
+    local closest = nil
+    local closestPos = nil
+    
+    pcall(function()
+        if not LocalPlayer.Character then return end
+        
+        for _, player in ipairs(Players:GetPlayers()) do
+            if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+                local humanoid = player.Character:FindFirstChildOfClass("Humanoid")
+                if humanoid and humanoid.Health > 0 then
+                    -- Check team first
+                    if not (SoftAimTeamCheck and LocalPlayer.Team and player.Team == LocalPlayer.Team) then
+                        -- Check if player is visible (not behind walls)
+                        if IsPlayerVisible(player) then
+                            local pos = player.Character.HumanoidRootPart.Position
+                            local screenPos, visible = Camera:WorldToViewportPoint(pos)
+                            if visible and screenPos.Z > 0 then
+                                local mouse = UserInputService:GetMouseLocation()
+                                local dist = (Vector2.new(screenPos.X, screenPos.Y) - Vector2.new(mouse.X, mouse.Y)).Magnitude
+                                if dist < shortest then
+                                    shortest = dist
+                                    closest = player
+                                    closestPos = screenPos
+                                end
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end)
+    
+    return closest, closestPos
+end
+
+-- Select first tab by default
+Window:SelectTab(1)
+
 -- =============== PERSISTENCE SYSTEM ===============
 -- Handle player respawning to maintain features
 local function OnPlayerAdded(player)
@@ -1575,9 +1651,16 @@ end
 UserInputService.InputBegan:Connect(function(input, gpe)
     if gpe then return end
     
-    -- Handle aim key
-    if input.UserInputType == SoftAimKey or input.KeyCode == SoftAimKey then
-        AimHoldingKey = true
+    -- Handle aim toggle key
+    if SoftAimEnabled and (input.UserInputType == SoftAimKey or input.KeyCode == SoftAimKey) then
+        SoftAimToggled = not SoftAimToggled
+        
+        WindUI:Notify({
+            Title = SoftAimToggled and "Silent Aim ON" or "Silent Aim OFF",
+            Content = SoftAimToggled and "Now tracking closest visible enemy" or "Tracking stopped",
+            Icon = SoftAimToggled and "crosshair" or "square",
+            Duration = 2,
+        })
     end
     
     -- Handle UI toggle
@@ -1589,23 +1672,31 @@ end)
 UserInputService.InputEnded:Connect(function(input, gpe)
     if gpe then return end
     
-    -- Handle aim key release
-    if input.UserInputType == SoftAimKey or input.KeyCode == SoftAimKey then
-        AimHoldingKey = false
-    end
+    -- No need for InputEnded handling with toggle system
 end)
 
--- =============== AUTO-UPDATE ESP LOOP ===============
--- This ensures ESP always updates for all players including respawns
-task.spawn(function()
-    while true do
-        UpdateAllESP()
-        task.wait(0.5) -- Update every 0.5 seconds to catch new players/respawns
+-- =============== START ESP UPDATE LOOP ===============
+local function StartESPUpdateLoop()
+    if ESPUpdateConnection then
+        ESPUpdateConnection:Disconnect()
     end
-end)
+    
+    ESPUpdateConnection = RunService.Heartbeat:Connect(function()
+        pcall(function()
+            -- Update all ESP visuals
+            if SkeletonESPEnabled then UpdateSkeletonESP() end
+            if HeadESPEnabled then UpdateHeadESP() end
+            if BoxESPEnabled then UpdateBoxESP() end
+            -- Charms ESP updates automatically via Highlight objects
+            
+            -- Update ESP creation/removal for new players or respawns
+            UpdateAllESP()
+        end)
+    end)
+end
 
--- =============== START AUTO SHOOT SYSTEM (READY BUT NOT ACTIVE) ===============
--- Auto shoot will start when toggle is enabled
+-- Start the ESP update loop
+StartESPUpdateLoop()
 
 -- =============== MAIN RENDER LOOP ===============
 RunService.RenderStepped:Connect(function()
@@ -1615,89 +1706,60 @@ RunService.RenderStepped:Connect(function()
             UpdateHitboxes() 
         end
         
-        -- Update ESP visuals (with separate team check)
-        if SkeletonESPEnabled then UpdateSkeletonESP() end
-        if HeadESPEnabled then UpdateHeadESP() end
-        if BoxESPEnabled then UpdateBoxESP() end
-        -- Charms ESP updates automatically via Highlight objects
-        
-        -- FIXED: Mouse Cursor Aim (NOT camera movement)
-        if SoftAimEnabled and AimHoldingKey and LocalPlayer.Character then
+        -- TOGGLE-BASED Silent Aim Implementation
+        if SoftAimEnabled and SoftAimToggled and LocalPlayer.Character then
             local target, targetScreenPos = GetClosestTarget()
             if target and targetScreenPos then
                 local currentMouse = UserInputService:GetMouseLocation()
                 local targetMouse = Vector2.new(targetScreenPos.X, targetScreenPos.Y)
                 
-                -- Smooth mouse movement using mousemoverel (if available)
-                local deltaX = (targetMouse.X - currentMouse.X) * Smoothness
-                local deltaY = (targetMouse.Y - currentMouse.Y) * Smoothness
+                -- Calculate smooth movement delta
+                local deltaX = (targetMouse.X - currentMouse.X) * (Smoothness / 100)
+                local deltaY = (targetMouse.Y - currentMouse.Y) * (Smoothness / 100)
                 
-                -- Note: Direct mouse movement is limited in Roblox client
-                -- This is a conceptual implementation
-                if mousemoverel then
-                    mousemoverel(deltaX, deltaY)
+                -- Try multiple methods for mouse movement
+                local success = false
+                
+                -- Method 1: Try mousemoverel if it exists
+                if getgenv and getgenv().mousemoverel then
+                    success = pcall(function()
+                        getgenv().mousemoverel(deltaX, deltaY)
+                    end)
+                elseif mousemoverel then
+                    success = pcall(function()
+                        mousemoverel(deltaX, deltaY)
+                    end)
+                end
+                
+                -- Method 2: Try mouse1move if available
+                if not success and mouse1move then
+                    success = pcall(function()
+                        mouse1move(targetMouse.X, targetMouse.Y)
+                    end)
+                end
+                
+                -- Method 3: Try direct mouse object manipulation if available
+                if not success and getgenv and getgenv().mouse then
+                    success = pcall(function()
+                        local mouse = getgenv().mouse
+                        mouse.X = currentMouse.X + deltaX
+                        mouse.Y = currentMouse.Y + deltaY
+                    end)
+                end
+                
+                -- Method 4: Virtual input simulation (if supported by executor)
+                if not success then
+                    -- This method uses virtual input if the executor supports it
+                    local virtualInput = game:GetService("VirtualInputManager")
+                    if virtualInput then
+                        pcall(function()
+                            virtualInput:SendMouseMoveEvent(targetMouse.X, targetMouse.Y, game)
+                        end)
+                    end
                 end
             end
         end
     end)
-end)
-
--- =============== USER INFO DISPLAY (AVATAR AND NAMES) ===============
--- Add player information display using WindUI paragraph elements
-local function GetPlayerAvatarUrl(userId)
-    return "https://www.roblox.com/headshot-thumbnail/image?userId=" .. userId .. "&width=60&height=60&format=png"
-end
-
-local function DisplayPlayerInfo()
-    -- Create a section for player information if it doesn't exist
-    if not Tabs.PlayerInfoTab then
-        Tabs.PlayerInfoTab = Tabs.VisualSection:Tab({
-            Title = "Players",
-            Icon = "users",
-            Desc = "View online player information"
-        })
-        
-        Tabs.PlayerInfoTab:Section({ Title = "Online Players" })
-    end
-    
-    -- Clear existing player info (basic approach)
-    -- Note: In a production script, you'd want to manage this more efficiently
-    
-    -- Display info for each player
-    for _, player in ipairs(Players:GetPlayers()) do
-        if player ~= LocalPlayer then
-            local displayName = player.DisplayName
-            local username = player.Name
-            local userId = player.UserId
-            
-            -- Create info display for each player
-            Tabs.PlayerInfoTab:Paragraph({
-                Title = displayName ~= username and (displayName .. " (@" .. username .. ")") or username,
-                Desc = "User ID: " .. userId .. "\nTeam: " .. (player.Team and player.Team.Name or "None"),
-                Image = GetPlayerAvatarUrl(userId),
-                ImageSize = 42,
-                Color = player.Team and "Blue" or "Grey"
-            })
-        end
-    end
-end
-
--- Update player info when players join/leave
-local function RefreshPlayerInfo()
-    task.spawn(function()
-        task.wait(1) -- Small delay to ensure UI is ready
-        DisplayPlayerInfo()
-    end)
-end
-
--- Connect player events for info updates
-Players.PlayerAdded:Connect(RefreshPlayerInfo)
-Players.PlayerRemoving:Connect(RefreshPlayerInfo)
-
--- Initial display
-task.spawn(function()
-    task.wait(3) -- Wait for UI to fully load
-    DisplayPlayerInfo()
 end)
 
 -- =============== CLEANUP ON SCRIPT UNLOAD ===============
@@ -1708,8 +1770,16 @@ game:BindToClose(function()
     ClearBoxESP()
     ClearCharmsESP()
     
+    -- Stop connections
+    if ESPUpdateConnection then
+        ESPUpdateConnection:Disconnect()
+    end
+    
     -- Stop auto kill
     StopAutoKill()
+    
+    -- Stop auto shoot
+    StopAutoShoot()
     
     -- Disable flight
     if FlightEnabled then
