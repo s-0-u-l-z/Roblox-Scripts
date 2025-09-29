@@ -1131,13 +1131,13 @@ utilityElements.uncBtn = createButton(contentFrames.Utility, "UNC Test", theme.s
 -- ESP FUNCTIONALITY
 local function createPlayerESP(targetPlayer)
     if espSettings.Players[targetPlayer] then return end
-    
+   
     local character = targetPlayer.Character
-    if not character then
-        targetPlayer.CharacterAdded:Wait()
-        character = targetPlayer.Character
-    end
+    if not character then return end
     
+    local head = character:FindFirstChild("Head")
+    if not head then return end
+   
     local highlight = Instance.new("Highlight")
     highlight.Name = targetPlayer.Name .. "_Highlight"
     highlight.OutlineColor = espSettings.HighlightColor
@@ -1147,27 +1147,27 @@ local function createPlayerESP(targetPlayer)
     highlight.Parent = character
     highlight.Adornee = character
     highlight.Enabled = espSettings.Enabled
-    
+   
     local billboard = Instance.new("BillboardGui")
     billboard.Name = targetPlayer.Name .. "_Billboard"
     billboard.AlwaysOnTop = true
     billboard.Size = UDim2.new(0, 120, 0, 40)
     billboard.StudsOffset = Vector3.new(0, 2.5, 0)
-    billboard.Adornee = character:WaitForChild("Head")
+    billboard.Adornee = head
     billboard.Parent = gui.screen
     billboard.Enabled = espSettings.Enabled
-    
+   
     local frame = Instance.new("Frame")
     frame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
     frame.BackgroundTransparency = 0.3
     frame.Size = UDim2.new(1, 0, 1, 0)
     frame.BorderSizePixel = 0
     frame.Parent = billboard
-    
+   
     local corner = Instance.new("UICorner")
     corner.CornerRadius = UDim.new(0, 8)
     corner.Parent = frame
-    
+   
     local textLabel = Instance.new("TextLabel")
     textLabel.Size = UDim2.new(1, -10, 1, -10)
     textLabel.Position = UDim2.new(0, 5, 0, 5)
@@ -1181,12 +1181,12 @@ local function createPlayerESP(targetPlayer)
     textLabel.TextYAlignment = Enum.TextYAlignment.Top
     textLabel.Text = ""
     textLabel.Parent = frame
-    
+   
     local tracerLine = Drawing.new("Line")
     tracerLine.Visible = false
     tracerLine.Thickness = 2
     tracerLine.Color = Color3.new(1, 1, 1)
-    
+   
     espSettings.Players[targetPlayer] = true
     espSettings.Highlights[targetPlayer] = highlight
     espSettings.Billboards[targetPlayer] = billboard
@@ -1221,9 +1221,9 @@ local function updatePlayerESP()
     local camera = Services.Workspace.CurrentCamera
     local myChar = player.Character
     local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
-    
+   
     if not camera or not myRoot then return end
-    
+   
     for targetPlayer, _ in pairs(espSettings.Players) do
         if not targetPlayer or not targetPlayer.Character then
             removePlayerESP(targetPlayer)
@@ -1232,44 +1232,44 @@ local function updatePlayerESP()
             local humanoid = character:FindFirstChild("Humanoid")
             local head = character:FindFirstChild("Head")
             local rootPart = character:FindFirstChild("HumanoidRootPart")
-            
+           
             if not humanoid or not head or not rootPart then
                 removePlayerESP(targetPlayer)
             else
                 local distance = (rootPart.Position - myRoot.Position).Magnitude
                 local inRange = distance <= espSettings.MaxDistance
-                
+               
                 local highlight = espSettings.Highlights[targetPlayer]
                 local billboard = espSettings.Billboards[targetPlayer]
                 local tracerLine = espSettings.TracerLines[targetPlayer]
-                
+               
                 if not highlight or not billboard or not tracerLine then
                     createPlayerESP(targetPlayer)
                 else
                     highlight.Enabled = espSettings.Enabled and inRange
                     billboard.Enabled = espSettings.Enabled and inRange
-                    
+                   
                     if billboard.Enabled then
                         local health = math.floor(humanoid.Health)
                         local maxHealth = math.floor(humanoid.MaxHealth)
-                        local text = string.format("%s\n%d/%dHP\n%d studs", 
+                        local text = string.format("%s\n%d/%dHP\n%d studs",
                             targetPlayer.Name, health, maxHealth, math.floor(distance))
-                        
+                       
                         local frame = billboard:FindFirstChild("Frame")
                         if frame then
                             local textLabel = frame:FindFirstChild("TextLabel")
                             if textLabel then textLabel.Text = text end
                         end
                     end
-                    
+                   
                     if espSettings.Tracers and espSettings.Enabled and inRange then
                         local screenPos, onScreen = camera:WorldToViewportPoint(rootPart.Position)
-                        
+                       
                         if onScreen and screenPos.Z > 0 then
                             tracerLine.Visible = true
                             tracerLine.From = Vector2.new(camera.ViewportSize.X/2, camera.ViewportSize.Y)
                             tracerLine.To = Vector2.new(screenPos.X, screenPos.Y)
-                            
+                           
                             if targetPlayer.Team and player.Team and targetPlayer.Team == player.Team then
                                 tracerLine.Color = Color3.new(0, 1, 0)
                             else
@@ -1291,11 +1291,29 @@ local function setupESP()
     clearAllESP()
     
     for _, otherPlayer in ipairs(Services.Players:GetPlayers()) do
-        if otherPlayer ~= player then createPlayerESP(otherPlayer) end
+        if otherPlayer ~= player then 
+            task.spawn(function()
+                if otherPlayer.Character then
+                    createPlayerESP(otherPlayer)
+                else
+                    otherPlayer.CharacterAdded:Wait()
+                    if espSettings.Enabled then
+                        createPlayerESP(otherPlayer)
+                    end
+                end
+            end)
+        end
     end
     
     Services.Players.PlayerAdded:Connect(function(newPlayer)
-        if newPlayer ~= player then createPlayerESP(newPlayer) end
+        if newPlayer ~= player then
+            task.spawn(function()
+                newPlayer.CharacterAdded:Wait()
+                if espSettings.Enabled then
+                    createPlayerESP(newPlayer)
+                end
+            end)
+        end
     end)
     
     Services.Players.PlayerRemoving:Connect(removePlayerESP)
@@ -2486,27 +2504,26 @@ if states.antiDetection and not Services.ReplicatedStorage:FindFirstChild("juisd
 end
 
 -- CORE LOOPS
-local lastUpdate = 0
 Services.RunService.Heartbeat:Connect(function()
     applyCharacterSettings()
 end)
 
--- Separate ESP update loop for better performance
+-- ESP update at full framerate for smooth tracers
 Services.RunService.RenderStepped:Connect(function()
-    local now = tick()
-    if now - lastUpdate >= 0.03 and espSettings.Enabled and gui.screen.Enabled then
-        lastUpdate = now
+    if espSettings.Enabled and gui.screen.Enabled then
         updatePlayerESP()
     end
 end)
 
 -- Update greeting every minute to reflect time changes
+local lastGreetingUpdate = 0
 Services.RunService.Heartbeat:Connect(function()
-    if tick() % 60 < 1 then  -- Update approximately every minute
+    local now = tick()
+    if now - lastGreetingUpdate >= 60 then
+        lastGreetingUpdate = now
         greetingLabel.Text = getTimeBasedGreeting()
     end
 end)
-
 -- Viewport scaling on resize
 Services.Workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(function()
     local newScale = calculateScale()
