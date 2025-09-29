@@ -107,6 +107,10 @@ local gameDatabase = {
     [6035872082] = {
         name = "RIVALS",
         url = "https://soluna-script.vercel.app/main.lua"
+    },
+    [47545] = {
+        name = "Pizza Place",
+        url = "https://raw.githubusercontent.com/Hm5011/hussain/refs/heads/main/Work%20at%20a%20pizza%20place"
     }
 }
 
@@ -1012,32 +1016,21 @@ local gamesElements = {}
 
 local function getSupportedGamesList()
     local gamesList = {}
-    for _, gameInfo in pairs(gameDatabase) do
-        table.insert(gamesList, "• " .. gameInfo.name)
+    for gameId, gameInfo in pairs(gameDatabase) do
+        table.insert(gamesList, {id = gameId, name = gameInfo.name})
     end
-    return table.concat(gamesList, "\n")
-end
-
-local currentGame = gameDatabase[game.GameId]
-if currentGame then
-    local gameDetectedLabel = Instance.new("TextLabel")
-    gameDetectedLabel.Parent = contentFrames["Games"]
-    gameDetectedLabel.BackgroundTransparency = 1
-    gameDetectedLabel.Size = UDim2.new(1, 0, 0, 30)
-    gameDetectedLabel.Font = fonts.bold
-    gameDetectedLabel.Text = "🎮 Game Detected: " .. currentGame.name
-    gameDetectedLabel.TextColor3 = theme.success
-    gameDetectedLabel.TextSize = math.floor(14 * config.guiScale)
-    gameDetectedLabel.TextXAlignment = Enum.TextXAlignment.Center
-    gameDetectedLabel.LayoutOrder = 1
     
-    gamesElements.loadBtn = createButton(
-        contentFrames["Games"], "Load " .. currentGame.name .. " Script", theme.primary,
-        function()
-            loadstring(game:HttpGet(currentGame.url))()
-            notify("Games", currentGame.name .. " script loaded!", 3, "success")
-        end, 2
-    )
+    -- Sort alphabetically by name
+    table.sort(gamesList, function(a, b)
+        return a.name < b.name
+    end)
+    
+    local formattedList = {}
+    for _, game in ipairs(gamesList) do
+        table.insert(formattedList, "• " .. game.name)
+    end
+    
+    return table.concat(formattedList, "\n")
 end
 
 -- Always show the list of supported games
@@ -1225,6 +1218,12 @@ local function clearAllESP()
 end
 
 local function updatePlayerESP()
+    local camera = Services.Workspace.CurrentCamera
+    local myChar = player.Character
+    local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
+    
+    if not camera or not myRoot then return end
+    
     for targetPlayer, _ in pairs(espSettings.Players) do
         if not targetPlayer or not targetPlayer.Character then
             removePlayerESP(targetPlayer)
@@ -1237,10 +1236,8 @@ local function updatePlayerESP()
             if not humanoid or not head or not rootPart then
                 removePlayerESP(targetPlayer)
             else
-                local distance = 0
-                if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-                    distance = (rootPart.Position - player.Character.HumanoidRootPart.Position).Magnitude
-                end
+                local distance = (rootPart.Position - myRoot.Position).Magnitude
+                local inRange = distance <= espSettings.MaxDistance
                 
                 local highlight = espSettings.Highlights[targetPlayer]
                 local billboard = espSettings.Billboards[targetPlayer]
@@ -1249,53 +1246,40 @@ local function updatePlayerESP()
                 if not highlight or not billboard or not tracerLine then
                     createPlayerESP(targetPlayer)
                 else
-                    highlight.Enabled = espSettings.Enabled and (distance <= espSettings.MaxDistance)
+                    highlight.Enabled = espSettings.Enabled and inRange
+                    billboard.Enabled = espSettings.Enabled and inRange
                     
-                    if billboard then
-                        billboard.Enabled = espSettings.Enabled and (distance <= espSettings.MaxDistance)
+                    if billboard.Enabled then
+                        local health = math.floor(humanoid.Health)
+                        local maxHealth = math.floor(humanoid.MaxHealth)
+                        local text = string.format("%s\n%d/%dHP\n%d studs", 
+                            targetPlayer.Name, health, maxHealth, math.floor(distance))
                         
-                        if billboard.Enabled then
-                            local health = math.floor(humanoid.Health)
-                            local maxHealth = math.floor(humanoid.MaxHealth)
-                            local text = string.format("%s\n%d/%dHP\n%d studs", 
-                                targetPlayer.Name, health, maxHealth, math.floor(distance))
-                            
-                            local frame = billboard:FindFirstChild("Frame")
-                            if frame then
-                                local textLabel = frame:FindFirstChild("TextLabel")
-                                if textLabel then textLabel.Text = text end
-                            end
+                        local frame = billboard:FindFirstChild("Frame")
+                        if frame then
+                            local textLabel = frame:FindFirstChild("TextLabel")
+                            if textLabel then textLabel.Text = text end
                         end
                     end
                     
-                    if tracerLine and espSettings.Tracers then
-                        tracerLine.Visible = espSettings.Enabled and (distance <= espSettings.MaxDistance)
+                    if espSettings.Tracers and espSettings.Enabled and inRange then
+                        local screenPos, onScreen = camera:WorldToViewportPoint(rootPart.Position)
                         
-                        if tracerLine.Visible then
-                            local camera = Services.Workspace.CurrentCamera
-                            local rootPos = rootPart.Position
-                            local screenPos, onScreen = camera:WorldToViewportPoint(rootPos)
+                        if onScreen and screenPos.Z > 0 then
+                            tracerLine.Visible = true
+                            tracerLine.From = Vector2.new(camera.ViewportSize.X/2, camera.ViewportSize.Y)
+                            tracerLine.To = Vector2.new(screenPos.X, screenPos.Y)
                             
-                            if onScreen then
-                                local bottomCenter = Vector2.new(camera.ViewportSize.X/2, camera.ViewportSize.Y)
-                                tracerLine.From = bottomCenter
-                                tracerLine.To = Vector2.new(screenPos.X, screenPos.Y)
-                                
-                                if targetPlayer.Team and player.Team then
-                                    if targetPlayer.Team == player.Team then
-                                        tracerLine.Color = Color3.new(0, 1, 0)
-                                    else
-                                        tracerLine.Color = Color3.new(1, 0, 0)
-                                    end
-                                else
-                                    tracerLine.Color = Color3.new(1, 1, 1)
-                                end
+                            if targetPlayer.Team and player.Team and targetPlayer.Team == player.Team then
+                                tracerLine.Color = Color3.new(0, 1, 0)
                             else
-                                tracerLine.Visible = false
+                                tracerLine.Color = Color3.new(1, 0, 0)
                             end
                         else
                             tracerLine.Visible = false
                         end
+                    else
+                        tracerLine.Visible = false
                     end
                 end
             end
@@ -2504,11 +2488,13 @@ end
 -- CORE LOOPS
 local lastUpdate = 0
 Services.RunService.Heartbeat:Connect(function()
-    local now = tick()
-    
     applyCharacterSettings()
-    
-    if now - lastUpdate >= 0.1 and espSettings.Enabled and gui.screen.Enabled then
+end)
+
+-- Separate ESP update loop for better performance
+Services.RunService.RenderStepped:Connect(function()
+    local now = tick()
+    if now - lastUpdate >= 0.03 and espSettings.Enabled and gui.screen.Enabled then
         lastUpdate = now
         updatePlayerESP()
     end
