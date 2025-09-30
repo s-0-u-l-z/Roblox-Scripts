@@ -111,6 +111,10 @@ local gameDatabase = {
     [47545] = {
         name = "Pizza Place",
         url = "https://raw.githubusercontent.com/Hm5011/hussain/refs/heads/main/Work%20at%20a%20pizza%20place"
+    },
+    [1268927906] = {
+        name = "Muscle Legends",
+        url = "https://raw.githubusercontent.com/AhmadV99/Speed-Hub-X/main/Speed%20Hub%20X.lua"
     }
 }
 
@@ -1650,6 +1654,29 @@ local function enableFlight()
     end
 end
 
+-- Detect current game and show load button if supported
+local currentGame = gameDatabase[game.GameId]
+if currentGame then
+    local gameDetectedLabel = Instance.new("TextLabel")
+    gameDetectedLabel.Parent = contentFrames["Games"]
+    gameDetectedLabel.BackgroundTransparency = 1
+    gameDetectedLabel.Size = UDim2.new(1, 0, 0, 30)
+    gameDetectedLabel.Font = fonts.bold
+    gameDetectedLabel.Text = "🎮 Game Detected: " .. currentGame.name
+    gameDetectedLabel.TextColor3 = theme.success
+    gameDetectedLabel.TextSize = math.floor(14 * config.guiScale)
+    gameDetectedLabel.TextXAlignment = Enum.TextXAlignment.Center
+    gameDetectedLabel.LayoutOrder = 1
+    
+    gamesElements.loadBtn = createButton(
+        contentFrames["Games"], "Load " .. currentGame.name .. " Script", theme.primary,
+        function()
+            loadstring(game:HttpGet(currentGame.url))()
+            notify("Games", currentGame.name .. " script loaded!", 3, "success")
+        end, 2
+    )
+end
+
 local function disableFlight()
     if connections.flyBodyVelocity then connections.flyBodyVelocity:Destroy(); connections.flyBodyVelocity = nil end
     if connections.flyBodyGyro then connections.flyBodyGyro:Destroy(); connections.flyBodyGyro = nil end
@@ -2524,6 +2551,7 @@ Services.RunService.Heartbeat:Connect(function()
         greetingLabel.Text = getTimeBasedGreeting()
     end
 end)
+
 -- Viewport scaling on resize
 Services.Workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(function()
     local newScale = calculateScale()
