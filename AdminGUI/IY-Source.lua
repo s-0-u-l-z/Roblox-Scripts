@@ -126,7 +126,7 @@ if makefolder and isfolder and writefile and isfile then
     end)
 end
 
-currentVersion = "6.3.3"
+currentVersion = "6.3.4"
 
 ScaledHolder = Instance.new("Frame")
 Scale = Instance.new("UIScale")
@@ -4633,6 +4633,8 @@ CMDs[#CMDs + 1] = {NAME = 'joindate / jd [player]', DESC = 'Tells you the date t
 CMDs[#CMDs + 1] = {NAME = 'chatjoindate / cjd [player]', DESC = 'Chats the date the player joined Roblox'}
 CMDs[#CMDs + 1] = {NAME = 'copyname / copyuser [player]', DESC = 'Copies a players full username to your clipboard'}
 CMDs[#CMDs + 1] = {NAME = 'userid / id [player]', DESC = 'Notifies a players user ID'}
+CMDs[#CMDs + 1] = {NAME = 'copyplaceid / placeid', DESC = 'Copies the current place id to your clipboard'}
+CMDs[#CMDs + 1] = {NAME = 'copygameid / gameid', DESC = 'Copies the current game id to your clipboard'}
 CMDs[#CMDs + 1] = {NAME = 'copyuserid / copyid [player]', DESC = 'Copies a players user ID to your clipboard'}
 CMDs[#CMDs + 1] = {NAME = 'appearanceid / aid [player]', DESC = 'Notifies a players appearance ID'}
 CMDs[#CMDs + 1] = {NAME = 'copyappearanceid / caid [player]', DESC = 'Copies a players appearance ID to your clipboard'}
@@ -4747,7 +4749,8 @@ CMDs[#CMDs + 1] = {NAME = 'noroot / removeroot / rroot', DESC = 'Removes your ch
 CMDs[#CMDs + 1] = {NAME = 'replaceroot', DESC = 'Replaces your characters HumanoidRootPart'}
 CMDs[#CMDs + 1] = {NAME = 'clearcharappearance / clearchar / clrchar', DESC = 'Removes all accessory, shirt, pants, charactermesh, and bodycolors'}
 CMDs[#CMDs + 1] = {NAME = '', DESC = ''}
-CMDs[#CMDs + 1] = {NAME = 'animation / anim [ID] [speed]', DESC = 'Makes your character perform an animation (must be by roblox to replicate)'}
+CMDs[#CMDs + 1] = {NAME = 'animation / anim [ID] [speed]', DESC = 'Makes your character perform an animation (must be an animation on the marketplace or by roblox/stickmasterluke to replicate)'}
+CMDs[#CMDs + 1] = {NAME = 'emote / em [ID] [speed]', DESC = 'Makes your character perform an emote (must be on the marketplace or by roblox/stickmasterluke to replicate)'}
 CMDs[#CMDs + 1] = {NAME = 'dance', DESC = 'Makes you  d a n c e'}
 CMDs[#CMDs + 1] = {NAME = 'undance', DESC = 'Stops dance animations'}
 CMDs[#CMDs + 1] = {NAME = 'spasm', DESC = 'Makes you  c r a z y'}
@@ -4826,6 +4829,7 @@ CMDs[#CMDs + 1] = {NAME = 'unctrllock', DESC = 'Re-binds Shiftlock to LeftShift'
 CMDs[#CMDs + 1] = {NAME = 'listento [player]', DESC = 'Listens to the area around a player. Can also eavesdrop with vc'}
 CMDs[#CMDs + 1] = {NAME = 'unlistento', DESC = 'Disables listento'}
 CMDs[#CMDs + 1] = {NAME = 'jerk', DESC = 'Makes you jork it'}
+CMDs[#CMDs + 1] = {NAME = 'unsuspendchat', DESC = 'Unsuspends you from text chat'}
 CMDs[#CMDs + 1] = {NAME = 'unsuspendvc', DESC = 'Unsuspends you from voice chat'}
 wait()
 
@@ -6954,11 +6958,20 @@ QEfly = true
 iyflyspeed = 1
 vehicleflyspeed = 1
 function sFLY(vfly)
-	repeat wait() until Players.LocalPlayer and Players.LocalPlayer.Character and getRoot(Players.LocalPlayer.Character) and Players.LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
-	repeat wait() until IYMouse
-	if flyKeyDown or flyKeyUp then flyKeyDown:Disconnect() flyKeyUp:Disconnect() end
+	local plr = Players.LocalPlayer
+	local char = plr.Character or plr.CharacterAdded:Wait()
+	local humanoid = char:FindFirstChildOfClass("Humanoid")
+	if not humanoid then
+		repeat task.wait() until char:FindFirstChildOfClass("Humanoid")
+		humanoid = char:FindFirstChildOfClass("Humanoid")
+	end
 
-	local T = getRoot(Players.LocalPlayer.Character)
+	if flyKeyDown or flyKeyUp then
+		flyKeyDown:Disconnect()
+		flyKeyUp:Disconnect()
+	end
+
+	local T = getRoot(char)
 	local CONTROL = {F = 0, B = 0, L = 0, R = 0, Q = 0, E = 0}
 	local lCONTROL = {F = 0, B = 0, L = 0, R = 0, Q = 0, E = 0}
 	local SPEED = 0
@@ -6970,68 +6983,71 @@ function sFLY(vfly)
 		BG.P = 9e4
 		BG.Parent = T
 		BV.Parent = T
-		BG.maxTorque = Vector3.new(9e9, 9e9, 9e9)
-		BG.cframe = T.CFrame
-		BV.velocity = Vector3.new(0, 0, 0)
-		BV.maxForce = Vector3.new(9e9, 9e9, 9e9)
+		BG.MaxTorque = Vector3.new(9e9, 9e9, 9e9)
+		BG.CFrame = T.CFrame
+		BV.Velocity = Vector3.new(0, 0, 0)
+		BV.MaxForce = Vector3.new(9e9, 9e9, 9e9)
 		task.spawn(function()
-			repeat wait()
-				if not vfly and Players.LocalPlayer.Character:FindFirstChildOfClass('Humanoid') then
-					Players.LocalPlayer.Character:FindFirstChildOfClass('Humanoid').PlatformStand = true
+			repeat task.wait()
+				local camera = workspace.CurrentCamera
+				if not vfly and humanoid then
+					humanoid.PlatformStand = true
 				end
+
 				if CONTROL.L + CONTROL.R ~= 0 or CONTROL.F + CONTROL.B ~= 0 or CONTROL.Q + CONTROL.E ~= 0 then
 					SPEED = 50
 				elseif not (CONTROL.L + CONTROL.R ~= 0 or CONTROL.F + CONTROL.B ~= 0 or CONTROL.Q + CONTROL.E ~= 0) and SPEED ~= 0 then
 					SPEED = 0
 				end
 				if (CONTROL.L + CONTROL.R) ~= 0 or (CONTROL.F + CONTROL.B) ~= 0 or (CONTROL.Q + CONTROL.E) ~= 0 then
-					BV.velocity = ((workspace.CurrentCamera.CoordinateFrame.lookVector * (CONTROL.F + CONTROL.B)) + ((workspace.CurrentCamera.CoordinateFrame * CFrame.new(CONTROL.L + CONTROL.R, (CONTROL.F + CONTROL.B + CONTROL.Q + CONTROL.E) * 0.2, 0).p) - workspace.CurrentCamera.CoordinateFrame.p)) * SPEED
+					BV.Velocity = ((camera.CFrame.LookVector * (CONTROL.F + CONTROL.B)) + ((camera.CFrame * CFrame.new(CONTROL.L + CONTROL.R, (CONTROL.F + CONTROL.B + CONTROL.Q + CONTROL.E) * 0.2, 0).p) - camera.CFrame.p)) * SPEED
 					lCONTROL = {F = CONTROL.F, B = CONTROL.B, L = CONTROL.L, R = CONTROL.R}
 				elseif (CONTROL.L + CONTROL.R) == 0 and (CONTROL.F + CONTROL.B) == 0 and (CONTROL.Q + CONTROL.E) == 0 and SPEED ~= 0 then
-					BV.velocity = ((workspace.CurrentCamera.CoordinateFrame.lookVector * (lCONTROL.F + lCONTROL.B)) + ((workspace.CurrentCamera.CoordinateFrame * CFrame.new(lCONTROL.L + lCONTROL.R, (lCONTROL.F + lCONTROL.B + CONTROL.Q + CONTROL.E) * 0.2, 0).p) - workspace.CurrentCamera.CoordinateFrame.p)) * SPEED
+					BV.Velocity = ((camera.CFrame.LookVector * (lCONTROL.F + lCONTROL.B)) + ((camera.CFrame * CFrame.new(lCONTROL.L + lCONTROL.R, (lCONTROL.F + lCONTROL.B + CONTROL.Q + CONTROL.E) * 0.2, 0).p) - camera.CFrame.p)) * SPEED
 				else
-					BV.velocity = Vector3.new(0, 0, 0)
+					BV.Velocity = Vector3.new(0, 0, 0)
 				end
-				BG.cframe = workspace.CurrentCamera.CoordinateFrame
+				BG.CFrame = camera.CFrame
 			until not FLYING
 			CONTROL = {F = 0, B = 0, L = 0, R = 0, Q = 0, E = 0}
 			lCONTROL = {F = 0, B = 0, L = 0, R = 0, Q = 0, E = 0}
 			SPEED = 0
 			BG:Destroy()
 			BV:Destroy()
-			if Players.LocalPlayer.Character:FindFirstChildOfClass('Humanoid') then
-				Players.LocalPlayer.Character:FindFirstChildOfClass('Humanoid').PlatformStand = false
-			end
+
+			if humanoid then humanoid.PlatformStand = false end
 		end)
 	end
-	flyKeyDown = IYMouse.KeyDown:Connect(function(KEY)
-		if KEY:lower() == 'w' then
+
+	flyKeyDown = UserInputService.InputBegan:Connect(function(input, processed)
+		if input.KeyCode == Enum.KeyCode.W then
 			CONTROL.F = (vfly and vehicleflyspeed or iyflyspeed)
-		elseif KEY:lower() == 's' then
+		elseif input.KeyCode == Enum.KeyCode.S then
 			CONTROL.B = - (vfly and vehicleflyspeed or iyflyspeed)
-		elseif KEY:lower() == 'a' then
+		elseif input.KeyCode == Enum.KeyCode.A then
 			CONTROL.L = - (vfly and vehicleflyspeed or iyflyspeed)
-		elseif KEY:lower() == 'd' then 
+		elseif input.KeyCode == Enum.KeyCode.D then
 			CONTROL.R = (vfly and vehicleflyspeed or iyflyspeed)
-		elseif QEfly and KEY:lower() == 'e' then
+		elseif input.KeyCode == Enum.KeyCode.E and QEfly then
 			CONTROL.Q = (vfly and vehicleflyspeed or iyflyspeed)*2
-		elseif QEfly and KEY:lower() == 'q' then
+		elseif input.KeyCode == Enum.KeyCode.Q and QEfly then
 			CONTROL.E = -(vfly and vehicleflyspeed or iyflyspeed)*2
 		end
-		pcall(function() workspace.CurrentCamera.CameraType = Enum.CameraType.Track end)
+		pcall(function() camera.CameraType = Enum.CameraType.Track end)
 	end)
-	flyKeyUp = IYMouse.KeyUp:Connect(function(KEY)
-		if KEY:lower() == 'w' then
+
+	flyKeyUp = UserInputService.InputEnded:Connect(function(input, processed)
+		if input.KeyCode == Enum.KeyCode.W then
 			CONTROL.F = 0
-		elseif KEY:lower() == 's' then
+		elseif input.KeyCode == Enum.KeyCode.S then
 			CONTROL.B = 0
-		elseif KEY:lower() == 'a' then
+		elseif input.KeyCode == Enum.KeyCode.A then
 			CONTROL.L = 0
-		elseif KEY:lower() == 'd' then
+		elseif input.KeyCode == Enum.KeyCode.D then
 			CONTROL.R = 0
-		elseif KEY:lower() == 'e' then
+		elseif input.KeyCode == Enum.KeyCode.E then
 			CONTROL.Q = 0
-		elseif KEY:lower() == 'q' then
+		elseif input.KeyCode == Enum.KeyCode.Q then
 			CONTROL.E = 0
 		end
 	end)
@@ -7204,6 +7220,10 @@ end)
 
 CFspeed = 50
 addcmd('cframefly', {'cfly'}, function(args, speaker)
+	if args[1] and isNumber(args[1]) then
+		CFspeed = args[1]
+	end
+
 	-- Full credit to peyton#9148 (apeyton)
 	speaker.Character:FindFirstChildOfClass('Humanoid').PlatformStand = true
 	local Head = speaker.Character:WaitForChild("Head")
@@ -7212,7 +7232,8 @@ addcmd('cframefly', {'cfly'}, function(args, speaker)
 	CFloop = RunService.Heartbeat:Connect(function(deltaTime)
 		local moveDirection = speaker.Character:FindFirstChildOfClass('Humanoid').MoveDirection * (CFspeed * deltaTime)
 		local headCFrame = Head.CFrame
-		local cameraCFrame = workspace.CurrentCamera.CFrame
+		local camera = workspace.CurrentCamera
+		local cameraCFrame = camera.CFrame
 		local cameraOffset = headCFrame:ToObjectSpace(cameraCFrame).Position
 		cameraCFrame = cameraCFrame * CFrame.new(-cameraOffset.X, -cameraOffset.Y, -cameraOffset.Z + 1)
 		local cameraPosition = cameraCFrame.Position
@@ -7825,17 +7846,16 @@ addcmd('allowrejoin',{'allowrj'},function(args, speaker)
 	end
 end)
 
-addcmd('cancelteleport',{'canceltp'},function(args, speaker)
-	TeleportService:TeleportCancel()
+addcmd("cancelteleport", {"canceltp"}, function(args, speaker)
+    TeleportService:TeleportCancel()
 end)
 
-addcmd('volume',{'vol'},function(args, speaker)
-	local level = args[1]/10
-	UserSettings():GetService("UserGameSettings").MasterVolume = level
+addcmd("volume",{ "vol"}, function(args, speaker)
+    UserSettings():GetService("UserGameSettings").MasterVolume = args[1]/10
 end)
 
-addcmd('antilag',{'boostfps','lowgraphics'},function(args, speaker)
-	local Terrain = workspace:FindFirstChildOfClass('Terrain')
+addcmd("antilag", {"boostfps", "lowgraphics"}, function(args, speaker)
+	local Terrain = workspace:FindFirstChildWhichIsA("Terrain")
 	Terrain.WaterWaveSize = 0
 	Terrain.WaterWaveSpeed = 0
 	Terrain.WaterReflectance = 0
@@ -7844,8 +7864,9 @@ addcmd('antilag',{'boostfps','lowgraphics'},function(args, speaker)
 	Lighting.FogEnd = 9e9
 	Lighting.FogStart = 9e9
 	settings().Rendering.QualityLevel = 1
-	for i,v in pairs(game:GetDescendants()) do
+	for _, v in pairs(game:GetDescendants()) do
 		if v:IsA("BasePart") then
+			v.CastShadow = false
 			v.Material = "Plastic"
 			v.Reflectance = 0
 			v.BackSurface = "SmoothNoOutlines"
@@ -7856,20 +7877,23 @@ addcmd('antilag',{'boostfps','lowgraphics'},function(args, speaker)
 			v.TopSurface = "SmoothNoOutlines"
 		elseif v:IsA("Decal") then
 			v.Transparency = 1
+			v.Texture = ""
 		elseif v:IsA("ParticleEmitter") or v:IsA("Trail") then
 			v.Lifetime = NumberRange.new(0)
 		end
 	end
-	for i,v in pairs(Lighting:GetDescendants()) do
+	for _, v in pairs(Lighting:GetDescendants()) do
 		if v:IsA("PostEffect") then
 			v.Enabled = false
 		end
 	end
 	workspace.DescendantAdded:Connect(function(child)
 		task.spawn(function()
-			if child:IsA('ForceField') or child:IsA('Sparkles') or child:IsA('Smoke') or child:IsA('Fire') or child:IsA('Beam') then
+			if child:IsA("ForceField") or child:IsA("Sparkles") or child:IsA("Smoke") or child:IsA("Fire") or child:IsA("Beam") then
 				RunService.Heartbeat:Wait()
 				child:Destroy()
+			elseif child:IsA("BasePart") then
+				child.CastShadow = false
 			end
 		end)
 	end)
@@ -8789,6 +8813,14 @@ addcmd('userid',{'id'},function(args, speaker)
 		local id = tostring(Players[v].UserId)
 		notify('User ID',id)
 	end
+end)
+
+addcmd("copyplaceid", {"placeid"}, function(args, speaker)
+    toClipboard(PlaceId)
+end)
+
+addcmd("copygameid", {"gameid"}, function(args, speaker)
+    toClipboard(game.GameId)
 end)
 
 addcmd('copyid',{'copyuserid'},function(args, speaker)
@@ -9870,13 +9902,40 @@ addcmd('headthrow',{},function(args, speaker)
 	end
 end)
 
+local function anim2track(asset_id)
+    local objs = game:GetObjects(asset_id)
+    for i = 1, #objs do
+        if objs[i]:IsA("Animation") then
+            return objs[i].AnimationId
+        end
+    end
+    return asset_id
+end
+
 addcmd("animation", {"anim"}, function(args, speaker)
+    local animid = tostring(args[1])
+    if not animid:find("rbxassetid://") then
+        animid = "rbxassetid://" .. animid
+    end
+    animid = anim2track(animid)
     local animation = Instance.new("Animation")
-    animation.AnimationId = "rbxassetid://" .. tostring(args[1])
+    animation.AnimationId = animid
     local anim = speaker.Character:FindFirstChildWhichIsA("Humanoid"):LoadAnimation(animation)
+    anim.Priority = Enum.AnimationPriority.Movement
     anim:Play()
     if args[2] then anim:AdjustSpeed(tostring(args[2])) end
 end)
+
+addcmd("emote", {"em"}, function(args, speaker)
+    local animid = tostring(args[1])
+    if not animid:find("rbxassetid://") then
+        animid = "rbxassetid://" .. animid
+    end
+	
+    local anim = humanoid:PlayEmoteAndGetAnimTrackById(animid)
+    if args[2] then anim:AdjustSpeed(tostring(args[2])) end
+end)
+
 
 addcmd('noanim',{},function(args, speaker)
 	speaker.Character.Animate.Disabled = true
@@ -11609,10 +11668,8 @@ end)
 
 addcmd("flyfling", {}, function(args, speaker)
     execCmd("unvehiclefly\\unwalkfling")
-    wait()
-    if args[1] and isNumber(args[1]) then
-        vehicleflyspeed = args[1]
-    end
+    task.wait()
+    vehicleflyspeed = tonumber(args[1]) or vehicleflyspeed
     execCmd("vehiclefly\\walkfling")
 end)
 
@@ -12105,6 +12162,7 @@ addcmd('headsize',{},function(args, speaker)
 			local Size = Vector3.new(sizeArg,sizeArg,sizeArg)
 			local Head = Players[v].Character:FindFirstChild('Head')
 			if Head:IsA("BasePart") then
+				Head.CanCollide = false
 				if not args[2] or sizeArg == 1 then
 					Head.Size = Vector3.new(2,1,1)
 				else
@@ -12124,6 +12182,7 @@ addcmd('hitbox',{},function(args, speaker)
 			local Size = Vector3.new(sizeArg,sizeArg,sizeArg)
 			local Root = Players[v].Character:FindFirstChild('HumanoidRootPart')
 			if Root:IsA("BasePart") then
+				Root.CanCollide = false
 				if not args[2] or sizeArg == 1 then
 					Root.Size = Vector3.new(2,1,1)
 					Root.Transparency = transparency
@@ -12490,14 +12549,26 @@ addcmd("guiscale", {}, function(args, speaker)
     updatesaves()
 end)
 
-addcmd("unsuspendvc", {}, function(args, speaker)
-    VoiceChatService:joinVoice()
+addcmd("unsuspendchat", {}, function(args, speaker)
+	if replicatesignal then
+        replicatesignal(TextChatService.UpdateChatTimeout, speaker.UserId, 0, 10)
+    else
+        notify("Incompatible Exploit", "Your exploit does not support this command (missing replicatesignal)")
+    end
+end)
 
-    if typeof(onVoiceModerated) ~= "RBXScriptConnection" then
-        onVoiceModerated = cloneref(game:GetService("VoiceChatInternal")).LocalPlayerModerated:Connect(function()
-            task.wait(1)
-            VoiceChatService:joinVoice()
-        end)
+addcmd("unsuspendvc", {}, function(args, speaker)
+	if replicatesignal then
+    	replicatesignal(VoiceChatService.ClientRetryJoin)
+
+    	if typeof(onVoiceModerated) ~= "RBXScriptConnection" then
+        	onVoiceModerated = cloneref(game:GetService("VoiceChatInternal")).LocalPlayerModerated:Connect(function()
+            	task.wait(1)
+            	replicatesignal(VoiceChatService.ClientRetryJoin)
+        	end)
+    	end
+    else
+        notify("Incompatible Exploit", "Your exploit does not support this command (missing replicatesignal)")
     end
 end)
 
@@ -13057,5 +13128,4 @@ task.spawn(function()
 	Credits:Destroy()
 	IntroBackground:Destroy()
 	minimizeHolder()
-	if IsOnMobile then notify("Unstable Device", "On mobile, Infinite Yield may have issues or features that are not functioning correctly.") end
 end)
