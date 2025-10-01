@@ -12,11 +12,11 @@ local Services = {
 }
 
 -- prevent script from running twice
-if _G.s0ulzV4Loaded then
-    warn("s0ulz V4 is already running!")
+if _G.s0ulzV5Loaded then
+    warn("s0ulz V5 is already running!")
     return
 end
-_G.s0ulzV4Loaded = true
+_G.s0ulzV5Loaded = true
 
 local player = Services.Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
@@ -73,10 +73,11 @@ local states = {
 
 local trollSettings = {
     chatText = "Hello World!",
-    chatDelay = 1,
+    chatDelay = 3,
     followTarget = nil,
     fakeLagWaitTime = 0.05,
-    fakeLagDelayTime = 0.4
+    fakeLagDelayTime = 0.4,
+    flingWhitelist = {}
 }
 
 local espSettings = {
@@ -108,7 +109,16 @@ local triggerbotSettings = {
     running = false
 }
 
-local hitboxSettings = {originalSizes = {}, expansionAmount = 1.5}
+local HitboxExpander = {
+    Enabled = false,
+    Size = 10,
+    Transparency = 0.5,
+    Color = Color3.fromRGB(255, 0, 0),
+    Connection = nil
+}
+
+local expandedPlayers = {}
+
 local inputFlags = {forward = false, back = false, left = false, right = false, up = false, down = false}
 local scriptEnv = {FPDH = Services.Workspace.FallenPartsDestroyHeight, OldPos = nil}
 local connections = {}
@@ -734,23 +744,64 @@ local function stopTriggerBot()
     triggerbotSettings.running = false
 end
 
--- troll features
+-- hitbox expander (fixed)
+local function enableHitbox()
+    if HitboxExpander.Connection then HitboxExpander.Connection:Disconnect() end
+    
+    HitboxExpander.Connection = Services.RunService.Heartbeat:Connect(function()
+        if not HitboxExpander.Enabled then return end
+        
+        for _, p in ipairs(Services.Players:GetPlayers()) do
+            if p ~= player then
+                local c = p.Character
+                if c then
+                    local hrp = c:FindFirstChild("HumanoidRootPart")
+                    if hrp and not expandedPlayers[hrp] then
+                        pcall(function()
+                            hrp.Size = Vector3.new(HitboxExpander.Size, HitboxExpander.Size, HitboxExpander.Size)
+                            hrp.Transparency = HitboxExpander.Transparency
+                            hrp.Color = HitboxExpander.Color
+                            hrp.Material = Enum.Material.Neon
+                            hrp.CanCollide = false
+                            expandedPlayers[hrp] = true
+                        end)
+                    end
+                end
+            end
+        end
+    end)
+    notify("Hitbox", "Hitbox Expander Enabled (size "..HitboxExpander.Size..")", 5)
+end
+
+local function disableHitbox()
+    if HitboxExpander.Connection then HitboxExpander.Connection:Disconnect() HitboxExpander.Connection = nil end
+    for _, p in ipairs(Services.Players:GetPlayers()) do
+        if p ~= player then
+            local c = p.Character
+            if c then
+                local hrp = c:FindFirstChild("HumanoidRootPart")
+                if hrp then
+                    pcall(function()
+                        hrp.Size = Vector3.new(2,2,1)
+                        hrp.Transparency = 1
+                        hrp.CanCollide = false
+                        expandedPlayers[hrp] = nil
+                    end)
+                end
+            end
+        end
+    end
+    expandedPlayers = {}
+    notify("Hitbox", "Hitbox Expander Disabled", 5)
+end
+
+-- troll features - chat spam (fixed)
 local function chatSpammerLoop()
-    while states.chatSpammer and Services.RunService.Heartbeat:Wait() do
+    while states.chatSpammer do
         local text = trollSettings.chatText
         if text ~= "" then
             pcall(function()
-                if Services.ReplicatedStorage:FindFirstChild("DefaultChatSystemChatEvents") then
-                    local chatEvents = Services.ReplicatedStorage.DefaultChatSystemChatEvents
-                    if chatEvents:FindFirstChild("SayMessageRequest") then
-                        chatEvents.SayMessageRequest:FireServer(text, "All")
-                    end
-                elseif game:GetService("TextChatService") then
-                    local textChatService = game:GetService("TextChatService")
-                    if textChatService.ChatInputBarConfiguration then
-                        textChatService.ChatInputBarConfiguration.TargetTextChannel:SendAsync(text)
-                    end
-                end
+                game:GetService("TextChatService").TextChannels.RBXGeneral:SendAsync(text)
             end)
         end
         task.wait(trollSettings.chatDelay)
@@ -799,6 +850,199 @@ local function followPlayerLoop()
             break
         end
         task.wait(0.03)
+    end
+end
+
+-- fling (fixed)
+local function GetPlayer(Name)
+    Name = Name:lower()
+    local AllBool = false
+    if Name == "all" or Name == "others" then
+        AllBool = true
+        local allPlayers = {}
+        for _, x in next, Services.Players:GetPlayers() do
+            if x ~= player then table.insert(allPlayers, x) end
+        end
+        return allPlayers, AllBool
+    elseif Name == "random" then
+        local GetPlayers = Services.Players:GetPlayers()
+        if table.find(GetPlayers, player) then table.remove(GetPlayers, table.find(GetPlayers, player)) end
+        return {GetPlayers[math.random(#GetPlayers)]}, false
+    elseif Name ~= "random" and Name ~= "all" and Name ~= "others" then
+        for _, x in next, Services.Players:GetPlayers() do
+            if x ~= player then
+                if x.Name:lower():match("^"..Name) then
+                    return {x}, false
+                elseif x.DisplayName:lower():match("^"..Name) then
+                    return {x}, false
+                end
+            end
+        end
+    end
+    return {}, false
+end
+
+local function SkidFling(TargetPlayer)
+    local Character = player.Character
+    local Humanoid = Character and Character:FindFirstChildOfClass("Humanoid")
+    local RootPart = Humanoid and Humanoid.RootPart
+
+    local TCharacter = TargetPlayer.Character
+    local THumanoid
+    local TRootPart
+    local THead
+    local Accessory
+    local Handle
+
+    if TCharacter:FindFirstChildOfClass("Humanoid") then
+        THumanoid = TCharacter:FindFirstChildOfClass("Humanoid")
+    end
+    if THumanoid and THumanoid.RootPart then
+        TRootPart = THumanoid.RootPart
+    end
+    if TCharacter:FindFirstChild("Head") then
+        THead = TCharacter.Head
+    end
+    if TCharacter:FindFirstChildOfClass("Accessory") then
+        Accessory = TCharacter:FindFirstChildOfClass("Accessory")
+    end
+    if Accessory and Accessory:FindFirstChild("Handle") then
+        Handle = Accessory.Handle
+    end
+
+    if Character and Humanoid and RootPart then
+        if RootPart.Velocity.Magnitude < 50 then
+            getgenv().OldPos = RootPart.CFrame
+        end
+        if THumanoid and THumanoid.Sit then
+            return notify("Error", "Target is sitting", 5)
+        end
+        if THead then
+            Services.Workspace.CurrentCamera.CameraSubject = THead
+        elseif not THead and Handle then
+            Services.Workspace.CurrentCamera.CameraSubject = Handle
+        elseif THumanoid and TRootPart then
+            Services.Workspace.CurrentCamera.CameraSubject = THumanoid
+        end
+        if not TCharacter:FindFirstChildWhichIsA("BasePart") then
+            return
+        end
+        
+        local FPos = function(BasePart, Pos, Ang)
+            RootPart.CFrame = CFrame.new(BasePart.Position) * Pos * Ang
+            Character:SetPrimaryPartCFrame(CFrame.new(BasePart.Position) * Pos * Ang)
+            RootPart.Velocity = Vector3.new(9e7, 9e7 * 10, 9e7)
+            RootPart.RotVelocity = Vector3.new(9e8, 9e8, 9e8)
+        end
+        
+        local SFBasePart = function(BasePart)
+            local TimeToWait = 2
+            local Time = tick()
+            local Angle = 0
+
+            repeat
+                if RootPart and THumanoid then
+                    if BasePart.Velocity.Magnitude < 50 then
+                        Angle = Angle + 100
+
+                        FPos(BasePart, CFrame.new(0, 1.5, 0) + THumanoid.MoveDirection * BasePart.Velocity.Magnitude / 1.25, CFrame.Angles(math.rad(Angle),0 ,0))
+                        task.wait()
+
+                        FPos(BasePart, CFrame.new(0, -1.5, 0) + THumanoid.MoveDirection * BasePart.Velocity.Magnitude / 1.25, CFrame.Angles(math.rad(Angle), 0, 0))
+                        task.wait()
+
+                        FPos(BasePart, CFrame.new(2.25, 1.5, -2.25) + THumanoid.MoveDirection * BasePart.Velocity.Magnitude / 1.25, CFrame.Angles(math.rad(Angle), 0, 0))
+                        task.wait()
+
+                        FPos(BasePart, CFrame.new(-2.25, -1.5, 2.25) + THumanoid.MoveDirection * BasePart.Velocity.Magnitude / 1.25, CFrame.Angles(math.rad(Angle), 0, 0))
+                        task.wait()
+
+                        FPos(BasePart, CFrame.new(0, 1.5, 0) + THumanoid.MoveDirection,CFrame.Angles(math.rad(Angle), 0, 0))
+                        task.wait()
+
+                        FPos(BasePart, CFrame.new(0, -1.5, 0) + THumanoid.MoveDirection,CFrame.Angles(math.rad(Angle), 0, 0))
+                        task.wait()
+                    else
+                        FPos(BasePart, CFrame.new(0, 1.5, THumanoid.WalkSpeed), CFrame.Angles(math.rad(90), 0, 0))
+                        task.wait()
+
+                        FPos(BasePart, CFrame.new(0, -1.5, -THumanoid.WalkSpeed), CFrame.Angles(0, 0, 0))
+                        task.wait()
+
+                        FPos(BasePart, CFrame.new(0, 1.5, THumanoid.WalkSpeed), CFrame.Angles(math.rad(90), 0, 0))
+                        task.wait()
+                        
+                        FPos(BasePart, CFrame.new(0, 1.5, TRootPart.Velocity.Magnitude / 1.25), CFrame.Angles(math.rad(90), 0, 0))
+                        task.wait()
+
+                        FPos(BasePart, CFrame.new(0, -1.5, -TRootPart.Velocity.Magnitude / 1.25), CFrame.Angles(0, 0, 0))
+                        task.wait()
+
+                        FPos(BasePart, CFrame.new(0, 1.5, TRootPart.Velocity.Magnitude / 1.25), CFrame.Angles(math.rad(90), 0, 0))
+                        task.wait()
+
+                        FPos(BasePart, CFrame.new(0, -1.5, 0), CFrame.Angles(math.rad(90), 0, 0))
+                        task.wait()
+
+                        FPos(BasePart, CFrame.new(0, -1.5, 0), CFrame.Angles(0, 0, 0))
+                        task.wait()
+
+                        FPos(BasePart, CFrame.new(0, -1.5 ,0), CFrame.Angles(math.rad(-90), 0, 0))
+                        task.wait()
+
+                        FPos(BasePart, CFrame.new(0, -1.5, 0), CFrame.Angles(0, 0, 0))
+                        task.wait()
+                    end
+                else
+                    break
+                end
+            until BasePart.Velocity.Magnitude > 500 or BasePart.Parent ~= TargetPlayer.Character or TargetPlayer.Parent ~= Services.Players or not TargetPlayer.Character == TCharacter or THumanoid.Sit or Humanoid.Health <= 0 or tick() > Time + TimeToWait
+        end
+        
+        Services.Workspace.FallenPartsDestroyHeight = 0/0
+        
+        local BV = Instance.new("BodyVelocity")
+        BV.Name = "EpixVel"
+        BV.Parent = RootPart
+        BV.Velocity = Vector3.new(9e8, 9e8, 9e8)
+        BV.MaxForce = Vector3.new(1/0, 1/0, 1/0)
+        
+        Humanoid:SetStateEnabled(Enum.HumanoidStateType.Seated, false)
+        
+        if TRootPart and THead then
+            if (TRootPart.CFrame.p - THead.CFrame.p).Magnitude > 5 then
+                SFBasePart(THead)
+            else
+                SFBasePart(TRootPart)
+            end
+        elseif TRootPart and not THead then
+            SFBasePart(TRootPart)
+        elseif not TRootPart and THead then
+            SFBasePart(THead)
+        elseif not TRootPart and not THead and Accessory and Handle then
+            SFBasePart(Handle)
+        else
+            return notify("Error", "Target is missing everything", 5)
+        end
+        
+        BV:Destroy()
+        Humanoid:SetStateEnabled(Enum.HumanoidStateType.Seated, true)
+        Services.Workspace.CurrentCamera.CameraSubject = Humanoid
+        
+        repeat
+            RootPart.CFrame = getgenv().OldPos * CFrame.new(0, .5, 0)
+            Character:SetPrimaryPartCFrame(getgenv().OldPos * CFrame.new(0, .5, 0))
+            Humanoid:ChangeState("GettingUp")
+            table.foreach(Character:GetChildren(), function(_, x)
+                if x:IsA("BasePart") then
+                    x.Velocity, x.RotVelocity = Vector3.new(), Vector3.new()
+                end
+            end)
+            task.wait()
+        until (RootPart.Position - getgenv().OldPos.p).Magnitude < 25
+        Services.Workspace.FallenPartsDestroyHeight = scriptEnv.FPDH
+    else
+        return notify("Error", "Random error", 5)
     end
 end
 
@@ -881,28 +1125,6 @@ local function teleportToPlayer(username)
     end
 end
 
--- fling
-local function SkidFling(TargetPlayer)
-    local Character = player.Character
-    local Humanoid = Character and Character:FindFirstChildOfClass("Humanoid")
-    local RootPart = Humanoid and Humanoid.RootPart
-    if not (Character and Humanoid and RootPart) then return end
-    if RootPart.Velocity.Magnitude < 50 then scriptEnv.OldPos = RootPart.CFrame end
-    
-    Services.Workspace.FallenPartsDestroyHeight = 0/0
-    local BV = Instance.new("BodyVelocity")
-    BV.Name = "EpixVel"
-    BV.Parent = RootPart
-    BV.Velocity = Vector3.new(9e8, 9e8, 9e8)
-    BV.MaxForce = Vector3.new(1/0, 1/0, 1/0)
-    Humanoid:SetStateEnabled(Enum.HumanoidStateType.Seated, false)
-    
-    task.wait(0.2)
-    if BV then BV:Destroy() end
-    Humanoid:SetStateEnabled(Enum.HumanoidStateType.Seated, true)
-    Services.Workspace.FallenPartsDestroyHeight = scriptEnv.FPDH
-end
-
 -- other features
 local function enableInvincibility()
     if connections.healthConnection then connections.healthConnection:Disconnect() end
@@ -918,32 +1140,6 @@ local function disableInvincibility()
     if connections.healthConnection then
         connections.healthConnection:Disconnect()
         connections.healthConnection = nil
-    end
-end
-
-local function expandHitBoxes(enable)
-    for _, otherPlayer in ipairs(Services.Players:GetPlayers()) do
-        if otherPlayer ~= player then
-            local char = otherPlayer.Character
-            if char then
-                if enable then
-                    hitboxSettings.originalSizes[otherPlayer] = {}
-                    for _, part in ipairs(char:GetDescendants()) do
-                        if part:IsA("BasePart") then
-                            hitboxSettings.originalSizes[otherPlayer][part] = part.Size
-                            part.Size = part.Size * hitboxSettings.expansionAmount
-                        end
-                    end
-                else
-                    if hitboxSettings.originalSizes[otherPlayer] then
-                        for part, size in pairs(hitboxSettings.originalSizes[otherPlayer]) do
-                            if part.Parent then part.Size = size end
-                        end
-                        hitboxSettings.originalSizes[otherPlayer] = nil
-                    end
-                end
-            end
-        end
     end
 end
 
@@ -964,14 +1160,14 @@ end
 local gui = {}
 
 gui.screen = Instance.new("ScreenGui")
-gui.screen.Name = "s0ulzV4Glass"
+gui.screen.Name = "s0ulzV5Glass"
 gui.screen.Parent = playerGui
 gui.screen.ResetOnSpawn = false
 gui.screen.IgnoreGuiInset = true
 gui.screen.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 gui.screen.DisplayOrder = 999999
 
--- this shit was harder than it should've been lol
+-- main container (mobile responsive)
 gui.main = Instance.new("Frame")
 gui.main.Name = "MainContainer"
 gui.main.Parent = gui.screen
@@ -980,7 +1176,7 @@ gui.main.BackgroundTransparency = 0.15
 gui.main.BorderSizePixel = 0
 gui.main.AnchorPoint = Vector2.new(0.5, 0.5)
 gui.main.Position = UDim2.new(0.5, 0, 0.5, 0)
-gui.main.Size = UDim2.new(0, 800, 0, 500)
+gui.main.Size = UDim2.new(0, math.min(800, Services.Workspace.CurrentCamera.ViewportSize.X * 0.9), 0, math.min(500, Services.Workspace.CurrentCamera.ViewportSize.Y * 0.8))
 gui.main.Active = true
 gui.main.ZIndex = 1
 
@@ -1007,7 +1203,7 @@ local glassCorner = Instance.new("UICorner")
 glassCorner.CornerRadius = UDim.new(0, 12)
 glassCorner.Parent = glassOverlay
 
--- dragging (okay this alignment took way too long)
+-- dragging
 local dragToggle, dragStart, startPos = nil, nil, nil
 local function updateInput(input)
     local delta = input.Position - dragStart
@@ -1016,7 +1212,7 @@ local function updateInput(input)
 end
 
 gui.main.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
         dragToggle = true
         dragStart = input.Position
         startPos = gui.main.Position
@@ -1027,7 +1223,7 @@ gui.main.InputBegan:Connect(function(input)
 end)
 
 Services.UserInputService.InputChanged:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseMovement and dragToggle then
+    if (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) and dragToggle then
         updateInput(input)
     end
 end)
@@ -1041,6 +1237,7 @@ gui.topBar.BackgroundTransparency = 0.3
 gui.topBar.BorderSizePixel = 0
 gui.topBar.Size = UDim2.new(1, 0, 0, 50)
 gui.topBar.ZIndex = 2
+gui.topBar.ClipsDescendants = true
 
 local topBarCorner = Instance.new("UICorner")
 topBarCorner.CornerRadius = UDim.new(0, 12)
@@ -1079,7 +1276,7 @@ authorText.TextSize = 11
 authorText.TextXAlignment = Enum.TextXAlignment.Left
 authorText.ZIndex = 3
 
--- control buttons
+-- control buttons (fixed positioning)
 local function createControlBtn(text, pos, color)
     local btn = Instance.new("TextButton")
     btn.Parent = gui.topBar
@@ -1114,8 +1311,8 @@ local function createControlBtn(text, pos, color)
     return btn
 end
 
-gui.minimizeBtn = createControlBtn("_", UDim2.new(1, -70, 0.5, -15), theme.surface)
-gui.closeBtn = createControlBtn("×", UDim2.new(1, -20, 0.5, -15), theme.surface)
+gui.minimizeBtn = createControlBtn("_", UDim2.new(1, -110, 0.5, -15), theme.surface)
+gui.closeBtn = createControlBtn("×", UDim2.new(1, -70, 0.5, -15), theme.surface)
 
 -- sidebar
 gui.sidebar = Instance.new("Frame")
@@ -1147,7 +1344,7 @@ local tabs = {
     {name = "Main", iconId = "rbxassetid://120749810782714", category = nil},
     {name = "Teleport", iconId = "rbxassetid://110936541789414", category = nil},
     {name = "Troll", iconId = "rbxassetid://116306337740101", category = nil},
-    {name = "Combat", iconId = "rbxassetid://98186551294424", category = true, subcategories = {"Hitbox", "Aim", "Triggerbot"}},
+    {name = "Combat", iconId = "rbxassetid://98186551294424", category = true, subcategories = {"Hitbox", "Aim", "Invincible", "Triggerbot"}},
     {name = "Visual", iconId = "rbxassetid://80175980744052", category = true, subcategories = {"ESP", "Tracers"}},
     {name = "Scripts", iconId = "rbxassetid://139603486234259", category = nil},
     {name = "Games", iconId = "rbxassetid://96175208477490", category = nil},
@@ -1175,7 +1372,6 @@ local function createNavButton(parent, text, iconId, layoutOrder, isCategory)
     btnStroke.Transparency = 0.9
     btnStroke.Parent = btn
     
-   
     local iconImage = Instance.new("ImageLabel")
     iconImage.Name = "Icon"
     iconImage.Parent = btn
@@ -1240,7 +1436,6 @@ end
 
 for i, tab in ipairs(tabs) do
     local btn, textLabel, iconImage = createNavButton(gui.sidebar, tab.name, tab.iconId, i, tab.category)
-    local icon = drawIcon(tab.iconType, iconFrame, Vector2.new(0, 0), 20)
     tabButtons[tab.name] = {button = btn, textLabel = textLabel, icon = iconImage}
     
     if tab.category and tab.subcategories then
@@ -1322,16 +1517,6 @@ for i, tab in ipairs(tabs) do
         end)
     end
 end
-
--- update icon positions with gui
-Services.RunService.RenderStepped:Connect(function()
-    for _, data in pairs(tabButtons) do
-        if data.iconFrame and data.icon then
-            local iconPos = data.iconFrame.AbsolutePosition
-            data.icon:UpdatePosition(Vector2.new(iconPos.X, iconPos.Y))
-        end
-    end
-end)
 
 -- content area
 gui.content = Instance.new("Frame")
@@ -1526,7 +1711,7 @@ local function createSlider(parent, labelText, descText, minVal, maxVal, current
     desc.TextWrapped = true
     desc.ZIndex = 3
     
-    local valueBox = Instance.new("TextLabel")
+    local valueBox = Instance.new("TextBox")
     valueBox.Parent = card
     valueBox.BackgroundTransparency = 1
     valueBox.Position = UDim2.new(1, -70, 0, 0)
@@ -1536,6 +1721,7 @@ local function createSlider(parent, labelText, descText, minVal, maxVal, current
     valueBox.TextColor3 = theme.text
     valueBox.TextSize = 13
     valueBox.TextXAlignment = Enum.TextXAlignment.Right
+    valueBox.ClearTextOnFocus = false
     valueBox.ZIndex = 3
     
     local track = Instance.new("Frame")
@@ -1591,8 +1777,17 @@ local function createSlider(parent, labelText, descText, minVal, maxVal, current
         if callback then callback(value) end
     end
     
+    valueBox.FocusLost:Connect(function()
+        local num = tonumber(valueBox.Text)
+        if num then
+            updateSlider(math.clamp(num, minVal, maxVal))
+        else
+            valueBox.Text = tostring(math.round(currentVal * 100) / 100)
+        end
+    end)
+    
     thumb.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
             dragging = true
             tween(thumb, 0.1, {Size = UDim2.new(0, 20, 0, 20)}):Play()
             tween(thumbGlow, 0.1, {Transparency = 0.2}):Play()
@@ -1600,7 +1795,7 @@ local function createSlider(parent, labelText, descText, minVal, maxVal, current
     end)
     
     Services.UserInputService.InputChanged:Connect(function(input)
-        if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+        if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
             local mousePos = Services.UserInputService:GetMouseLocation()
             local trackPos = track.AbsolutePosition
             local relativeX = math.clamp((mousePos.X - trackPos.X) / track.AbsoluteSize.X, 0, 1)
@@ -1609,7 +1804,7 @@ local function createSlider(parent, labelText, descText, minVal, maxVal, current
     end)
     
     Services.UserInputService.InputEnded:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 and dragging then
+        if (input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch) and dragging then
             dragging = false
             tween(thumb, 0.1, {Size = UDim2.new(0, 16, 0, 16)}):Play()
             tween(thumbGlow, 0.1, {Transparency = 0.5}):Play()
@@ -1656,15 +1851,12 @@ local function createButton(parent, text, callback, layoutOrder, color)
 end
 
 local function createInput(parent, placeholder, layoutOrder)
-    local card = createCard(parent, layoutOrder)
-    card.Size = UDim2.new(1, 0, 0, 50)
-    
     local input = Instance.new("TextBox")
-    input.Parent = card
-    input.BackgroundColor3 = theme.bg
+    input.Parent = parent
+    input.BackgroundColor3 = theme.surface
     input.BackgroundTransparency = 0.3
     input.BorderSizePixel = 0
-    input.Size = UDim2.new(1, 0, 1, 0)
+    input.Size = UDim2.new(1, 0, 0, 50)
     input.Font = Enum.Font.Gotham
     input.PlaceholderText = placeholder
     input.PlaceholderColor3 = theme.textDim
@@ -1673,11 +1865,17 @@ local function createInput(parent, placeholder, layoutOrder)
     input.TextSize = 12
     input.ClearTextOnFocus = false
     input.TextXAlignment = Enum.TextXAlignment.Left
+    input.LayoutOrder = layoutOrder
     input.ZIndex = 3
     
     local inputCorner = Instance.new("UICorner")
-    inputCorner.CornerRadius = UDim.new(0, 8)
+    inputCorner.CornerRadius = UDim.new(0, 10)
     inputCorner.Parent = input
+    
+    local inputStroke = Instance.new("UIStroke")
+    inputStroke.Color = theme.border
+    inputStroke.Transparency = 0.7
+    inputStroke.Parent = input
     
     local inputPadding = Instance.new("UIPadding")
     inputPadding.PaddingLeft = UDim.new(0, 12)
@@ -1753,7 +1951,7 @@ end, 3)
 
 -- troll tab
 local chatTextInput = createInput(contentFrames.Troll, "Enter text to spam...", 1)
-createSlider(contentFrames.Troll, "Chat Delay", "Time between messages", 0.1, 5, trollSettings.chatDelay,
+createSlider(contentFrames.Troll, "Chat Delay", "Time between messages", 0.1, 10, trollSettings.chatDelay,
     function(val) trollSettings.chatDelay = val end, 2)
 createToggle(contentFrames.Troll, "Chat Spammer", "Spam chat", function(state) 
     states.chatSpammer = state
@@ -1793,14 +1991,35 @@ end, 8)
 
 local flingInput = createInput(contentFrames.Troll, "Player to fling...", 9)
 createButton(contentFrames.Troll, "Fling Player", function()
-    local targets = findPlayer(flingInput.Text)
-    for _, target in ipairs(targets) do SkidFling(target) end
-end, 10)
-createButton(contentFrames.Troll, "Fling Everyone", function()
-    for _, otherPlayer in ipairs(Services.Players:GetPlayers()) do
-        if otherPlayer ~= player then SkidFling(otherPlayer) end
+    local targets, _ = GetPlayer(flingInput.Text:lower())
+    for _, target in
+    ipairs(targets) do
+        if target then
+            SkidFling(target)
+        end
     end
-end, 11, theme.error)
+end, 10)
+
+local whitelistInput = createInput(contentFrames.Troll, "Whitelist (comma separated)...", 11)
+createButton(contentFrames.Troll, "Fling Everyone", function()
+    local whitelist = {}
+    for name in whitelistInput.Text:gmatch("[^,]+") do
+        local trimmed = name:match("^%s*(.-)%s*$")
+        if trimmed ~= "" then
+            whitelist[trimmed:lower()] = true
+        end
+    end
+    
+    for _, otherPlayer in ipairs(Services.Players:GetPlayers()) do
+        if otherPlayer ~= player then
+            local isWhitelisted = whitelist[otherPlayer.Name:lower()] or whitelist[otherPlayer.DisplayName:lower()]
+            if not isWhitelisted then
+                SkidFling(otherPlayer)
+            end
+        end
+    end
+end, 12, theme.error)
+
 createToggle(contentFrames.Troll, "Touch Fling", "Fling on touch", function(state) 
     states.touchFling = state
     if state then
@@ -1808,17 +2027,17 @@ createToggle(contentFrames.Troll, "Touch Fling", "Fling on touch", function(stat
     else
         if connections.touchFlingThread then task.cancel(connections.touchFlingThread) end
     end
-end, 12)
+end, 13)
 
--- hitbox
+-- hitbox tab
 createToggle(contentFrames.Hitbox, "Enable Hitbox", "Expand hitboxes", function(state) 
-    states.hitboxExpander = state
-    expandHitBoxes(state)
+    HitboxExpander.Enabled = state
+    if state then enableHitbox() else disableHitbox() end
 end, 1)
-createSlider(contentFrames.Hitbox, "Hitbox Size", "Expansion amount", 1, 10, hitboxSettings.expansionAmount,
-    function(val) hitboxSettings.expansionAmount = val; if states.hitboxExpander then expandHitBoxes(true) end end, 2)
+createSlider(contentFrames.Hitbox, "Hitbox Size", "Expansion amount", 1, 20, HitboxExpander.Size,
+    function(val) HitboxExpander.Size = val; if HitboxExpander.Enabled then disableHitbox(); enableHitbox() end end, 2)
 
--- aim
+-- aim tab
 createToggle(contentFrames.Aim, "Aimbot", "Auto-aim", function(state) 
     aimbotSettings.Enabled = state
     if state then startAimbot() else stopAimbot() end
@@ -1826,24 +2045,43 @@ end, 1)
 createSlider(contentFrames.Aim, "Smoothing", "Aim smoothness", 0, 1, aimbotSettings.Smoothing,
     function(val) aimbotSettings.Smoothing = val end, 2)
 
--- cooldown (triggerbot)
-createToggle(contentFrames.Cooldown, "Triggerbot", "Auto-fire", function(state) 
+-- invincible tab (moved from utility to combat)
+createToggle(contentFrames.Invincible, "Invincible", "God mode", function(state) 
+    states.invincible = state
+    if state then enableInvincibility() else disableInvincibility() end
+end, 1)
+
+-- triggerbot tab (fixed - was empty)
+createToggle(contentFrames.Triggerbot, "Triggerbot", "Auto-fire on target", function(state) 
     triggerbotSettings.Enabled = state
     if state then startTriggerBot() else stopTriggerBot() end
 end, 1)
-createSlider(contentFrames.Cooldown, "Delay", "Fire delay", 0, 1, triggerbotSettings.delay,
+createSlider(contentFrames.Triggerbot, "Delay", "Fire delay", 0, 1, triggerbotSettings.delay,
     function(val) triggerbotSettings.delay = val end, 2)
-createSlider(contentFrames.Cooldown, "Range", "Max distance", 50, 1000, triggerbotSettings.range,
+createSlider(contentFrames.Triggerbot, "Range", "Max distance", 50, 1000, triggerbotSettings.range,
     function(val) triggerbotSettings.range = val end, 3)
 
--- esp
+-- esp tab
 createToggle(contentFrames.ESP, "ESP", "See through walls", function(state) 
     espSettings.Enabled = state
     if state then setupESP() else clearAllESP() end
 end, 1)
 
--- tracers
-createToggle(contentFrames.Tracers, "Tracers", "Draw lines", function(state) 
+-- tracers tab (added note)
+local tracerNote = Instance.new("TextLabel")
+tracerNote.Parent = contentFrames.Tracers
+tracerNote.BackgroundTransparency = 1
+tracerNote.Size = UDim2.new(1, 0, 0, 40)
+tracerNote.Font = Enum.Font.GothamMedium
+tracerNote.Text = "Note: Turn on ESP first to use Tracers"
+tracerNote.TextColor3 = theme.warning
+tracerNote.TextSize = 12
+tracerNote.TextXAlignment = Enum.TextXAlignment.Left
+tracerNote.TextWrapped = true
+tracerNote.LayoutOrder = 0
+tracerNote.ZIndex = 3
+
+createToggle(contentFrames.Tracers, "Tracers", "Draw lines to players", function(state) 
     espSettings.Tracers = state
     if not state then
         for _, line in pairs(espSettings.TracerLines) do
@@ -1852,7 +2090,7 @@ createToggle(contentFrames.Tracers, "Tracers", "Draw lines", function(state)
     end
 end, 1)
 
--- scripts
+-- scripts tab
 local function createScriptSection(title, scripts, parent, order)
     local titleLabel = Instance.new("TextLabel")
     titleLabel.Parent = parent
@@ -1894,9 +2132,9 @@ createScriptSection("Regular Scripts", regularScripts, contentFrames.Scripts, 1)
 createScriptSection("Bypassers", bypassers, contentFrames.Scripts, 20)
 createScriptSection("Animations", animations, contentFrames.Scripts, 40)
 
--- games
+-- games tab (fixed game detection)
 local searchBar = createInput(contentFrames.Games, "Search games...", 1)
-for i, game in ipairs(gameDatabase) do
+for i, gameData in ipairs(gameDatabase) do
     local gameCard = createCard(contentFrames.Games, i + 1)
     gameCard.Size = UDim2.new(1, 0, 0, 80)
     
@@ -1905,7 +2143,7 @@ for i, game in ipairs(gameDatabase) do
     gameName.BackgroundTransparency = 1
     gameName.Size = UDim2.new(1, -120, 0, 22)
     gameName.Font = Enum.Font.GothamBold
-    gameName.Text = game.name
+    gameName.Text = gameData.name
     gameName.TextColor3 = theme.text
     gameName.TextSize = 14
     gameName.TextXAlignment = Enum.TextXAlignment.Left
@@ -1917,7 +2155,7 @@ for i, game in ipairs(gameDatabase) do
     gameDesc.Position = UDim2.new(0, 0, 0, 26)
     gameDesc.Size = UDim2.new(1, -120, 0, 30)
     gameDesc.Font = Enum.Font.Gotham
-    gameDesc.Text = game.desc
+    gameDesc.Text = gameData.desc
     gameDesc.TextColor3 = theme.textDim
     gameDesc.TextSize = 11
     gameDesc.TextXAlignment = Enum.TextXAlignment.Left
@@ -1950,12 +2188,14 @@ for i, game in ipairs(gameDatabase) do
     end)
     
     loadBtn.MouseButton1Click:Connect(function()
-        loadstring(game:HttpGet(game.url))()
-        notify("Games", game.name .. " loaded!", 3)
+        pcall(function()
+            loadstring(game:HttpGet(gameData.url))()
+            notify("Games", gameData.name .. " loaded!", 3)
+        end)
     end)
 end
 
--- utility
+-- utility tab
 createButton(contentFrames.Utility, "Rejoin", function()
     Services.TeleportService:Teleport(game.PlaceId, player)
 end, 1)
@@ -1980,10 +2220,6 @@ end, 3)
 createButton(contentFrames.Utility, "Unlock FPS", function()
     if setfpscap then setfpscap(999) notify("FPS", "Unlocked", 3) end
 end, 4)
-createToggle(contentFrames.Utility, "Invincible", "God mode", function(state) 
-    states.invincible = state
-    if state then enableInvincibility() else disableInvincibility() end
-end, 5)
 
 -- tab switching
 local function switchTab(tabName)
@@ -2018,13 +2254,17 @@ end
 
 switchTab("Main")
 
--- control buttons
+-- control buttons (fixed minimize and close with animations)
 gui.minimizeBtn.MouseButton1Click:Connect(function()
     config.isMinimized = not config.isMinimized
     if config.isMinimized then
-        tween(gui.main, 0.3, {Size = UDim2.new(0, 800, 0, 50)}):Play()
+        tween(gui.main, 0.3, {Size = UDim2.new(0, math.min(800, Services.Workspace.CurrentCamera.ViewportSize.X * 0.9), 0, 50)}):Play()
+        tween(gui.sidebar, 0.3, {Size = UDim2.new(0, 200, 0, 0)}):Play()
+        tween(gui.content, 0.3, {Size = UDim2.new(1, -200, 0, 0)}):Play()
     else
-        tween(gui.main, 0.3, {Size = UDim2.new(0, 800, 0, 500)}):Play()
+        tween(gui.main, 0.3, {Size = UDim2.new(0, math.min(800, Services.Workspace.CurrentCamera.ViewportSize.X * 0.9), 0, math.min(500, Services.Workspace.CurrentCamera.ViewportSize.Y * 0.8))}):Play()
+        tween(gui.sidebar, 0.3, {Size = UDim2.new(0, 200, 1, -50)}):Play()
+        tween(gui.content, 0.3, {Size = UDim2.new(1, -200, 1, -50)}):Play()
     end
 end)
 
@@ -2033,10 +2273,10 @@ gui.closeBtn.MouseButton1Click:Connect(function()
     task.wait(0.3)
     for _, icon in ipairs(drawnIcons) do icon:Destroy() end
     gui.screen:Destroy()
-    _G.s0ulzV4Loaded = nil
+    _G.s0ulzV5Loaded = nil
 end)
 
--- input handling
+-- input handling (fixed F key detection)
 Services.RunService.RenderStepped:Connect(function(dt)
     if not states.flight or not connections.flyBodyVelocity then return end
     if not inputFlags.forward then config.forwardHold = 0 end
@@ -2065,8 +2305,20 @@ Services.UserInputService.InputBegan:Connect(function(input, gameProcessed)
     elseif key == Enum.KeyCode.D then inputFlags.right = true
     elseif key == Enum.KeyCode.E then inputFlags.up = true
     elseif key == Enum.KeyCode.Q then inputFlags.down = true
-    elseif key == Enum.KeyCode.F then toggleFlightState()
-    elseif key == Enum.KeyCode.F4 then gui.screen.Enabled = not gui.screen.Enabled end
+    elseif key == Enum.KeyCode.F then 
+        toggleFlightState()
+    elseif key == Enum.KeyCode.F4 then 
+        local targetEnabled = not gui.screen.Enabled
+        if targetEnabled then
+            gui.screen.Enabled = true
+            gui.main.Size = UDim2.new(0, 0, 0, 0)
+            tween(gui.main, 0.3, {Size = UDim2.new(0, math.min(800, Services.Workspace.CurrentCamera.ViewportSize.X * 0.9), 0, config.isMinimized and 50 or math.min(500, Services.Workspace.CurrentCamera.ViewportSize.Y * 0.8))}):Play()
+        else
+            tween(gui.main, 0.3, {Size = UDim2.new(0, 0, 0, 0)}):Play()
+            task.wait(0.3)
+            gui.screen.Enabled = false
+        end
+    end
 end)
 
 Services.UserInputService.InputEnded:Connect(function(input)
@@ -2088,7 +2340,7 @@ player.CharacterAdded:Connect(function(character)
     if states.flight then enableFlight() end
     if states.noclip then enableNoclip() end
     if states.invincible then enableInvincibility() end
-    if states.hitboxExpander then expandHitBoxes(true) end
+    if HitboxExpander.Enabled then enableHitbox() end
     if espSettings.Enabled then setupESP() end
 end)
 
@@ -2112,23 +2364,22 @@ gui.screen.Destroying:Connect(function()
     if states.noclip then disableNoclip() end
     clearAllESP()
     if states.invincible then disableInvincibility() end
-    if states.hitboxExpander then expandHitBoxes(false) end
+    if HitboxExpander.Enabled then disableHitbox() end
     if aimbotSettings.Connection then aimbotSettings.Connection:Disconnect() end
     Services.Workspace.FallenPartsDestroyHeight = scriptEnv.FPDH
-    _G.s0ulzV4Loaded = nil
+    _G.s0ulzV5Loaded = nil
 end)
 
 -- init
 applyCharacterSettings()
 gui.screen.Enabled = true
 gui.main.Size = UDim2.new(0, 0, 0, 0)
-tween(gui.main, 0.5, {Size = UDim2.new(0, 800, 0, 500)}):Play()
+tween(gui.main, 0.5, {Size = UDim2.new(0, math.min(800, Services.Workspace.CurrentCamera.ViewportSize.X * 0.9), 0, math.min(500, Services.Workspace.CurrentCamera.ViewportSize.Y * 0.8))}):Play()
 
 task.wait(0.8)
-notify("s0ulz V4", "Loaded successfully!", 5)
+notify("s0ulz V5", "Loaded successfully!", 5)
 task.wait(0.4)
 notify("Controls", "F4 = Toggle GUI | F = Fly", 4)
-
 
 print("--================================--")
 print("     Made With Love <3 - s0ulz")
