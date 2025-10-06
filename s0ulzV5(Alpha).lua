@@ -203,11 +203,14 @@ local gameDatabase = {
     {id = 372226183, name = "Flee the Facility", desc = "Hide & seek", url = "https://raw.githubusercontent.com/PabloOP-87/pedorga/refs/heads/main/Flee-Da-Facility"},
     {id = 3808081382, name = "TSB", desc = "Hero battles", url = "https://raw.githubusercontent.com/ATrainz/Phantasm/refs/heads/main/Games/TSB.lua"},
     {id = 5203828273, name = "DTI", desc = "Fashion show", url = "https://raw.githubusercontent.com/hellohellohell012321/DTI-GUI-V2/main/dti_gui_v2.lua"},
-    {id = 6931042565, name = "Volleyball", desc = "Competitive", url = "https://raw.githubusercontent.com/scriptshubzeck/Zeckhubv1/refs/heads/main/zeckhub"},
+    {id = 6931042565, name = "Volleyball Legends", desc = "Competitive Volleyball Game", url = "https://raw.githubusercontent.com/scriptshubzeck/Zeckhubv1/refs/heads/main/zeckhub"},
     {id = 7436755782, name = "Grow A Garden", desc = "Relaxing sim", url = "https://raw.githubusercontent.com/ThundarZ/Welcome/refs/heads/main/Main/GaG/Main.lua"},
-    {id = 6035872082, name = "RIVALS", desc = "Tactical FPS", url = "https://pastebin.com/raw/zWhb1mMS"},
+    {id = 6035872082, name = "RIVALS", desc = "Tactical FPS", url = "https://soluna-script.vercel.app/main.lua"},
     {id = 47545, name = "Work At A Pizza Place", desc = "Work roleplay", url = "https://raw.githubusercontent.com/Hm5011/hussain/refs/heads/main/Work%20at%20a%20pizza%20place"},
-    {id = 1268927906, name = "Muscle Legends", desc = "Training sim", url = "https://raw.githubusercontent.com/AhmadV99/Speed-Hub-X/main/Speed%20Hub%20X.lua"}
+    {id = 1268927906, name = "Muscle Legends", desc = "Training sim", url = "https://raw.githubusercontent.com/AhmadV99/Speed-Hub-X/main/Speed%20Hub%20X.lua"},
+    {id = 6022371481, name = "Spelling Bee", desc = "Spell words I guess", url = "https://raw.githubusercontent.com/PreppyHub/PreppyHub/refs/heads/main/PreppyHub"},
+    {id = 1516533665, name = "Piggy", desc = "Pig chases you?", url = "https://raw.githubusercontent.com/StarHackScripts/StarHack-Hub-Deepstar-Hub/refs/heads/main/StarHack%20Hub%20-%20Piggy%20Pro%20Hub.txt"},
+    {id = 1008451066, name = "Da Hood", desc = "Act like a gangster lol", url = "https://raw.githubusercontent.com/s-0-u-l-z/Roblox-Scripts/refs/heads/main/Obsfucate/EZ-Hood.lua"}
 }
 
 -- game detection and auto-load with confirmation
